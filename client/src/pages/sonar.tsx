@@ -16,6 +16,7 @@ export default function SonarPage() {
   const [detections, setDetections] = useState<Detection[]>([]);
   const [quantumStatus, setQuantumStatus] = useState<'idle' | 'ready' | 'processing'>('idle');
   const [detectionRange, setDetectionRange] = useState(0);
+  const [showControls, setShowControls] = useState(false);
   
   const [settings, setSettings] = useState<Settings>({
     fftSize: '256',
@@ -54,7 +55,7 @@ export default function SonarPage() {
   useEffect(() => {
     if (settings.quantumMode === 'off') {
       setQuantumStatus('idle');
-    } else if (settings.quantumMode !== 'off') {
+    } else {
       // Only set to ready if currently idle
       setQuantumStatus(prev => prev === 'idle' ? 'ready' : prev);
     }
@@ -110,6 +111,18 @@ export default function SonarPage() {
       alert('Failed to access microphone. Please check your permissions and try again.');
     }
   };
+
+  // Keyboard shortcut to toggle controls (C key)
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === 'c' || e.key === 'C') {
+        setShowControls(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
 
   if (!audio.ready) {
     return (
@@ -171,14 +184,16 @@ export default function SonarPage() {
         detectionRange={detectionRange}
       />
 
-      {/* Detection Panel */}
-      <DetectionPanel detections={detections} />
+      {/* Detection Panel - Conditionally shown */}
+      {showControls && <DetectionPanel detections={detections} />}
 
-      {/* Control Panel */}
-      <ControlPanel
-        settings={settings}
-        onSettingsChange={handleSettingsChange}
-      />
+      {/* Control Panel - Conditionally shown */}
+      {showControls && (
+        <ControlPanel
+          settings={settings}
+          onSettingsChange={handleSettingsChange}
+        />
+      )}
 
       {/* Status Indicator */}
       <div className="fixed bottom-8 left-8 pointer-events-none">
@@ -191,6 +206,17 @@ export default function SonarPage() {
           </div>
         </div>
       </div>
+
+      {/* Controls Toggle Hint */}
+      {!showControls && (
+        <div className="fixed top-8 right-8 pointer-events-none">
+          <div className="backdrop-blur-sm bg-card/70 border border-card-border rounded-md px-4 py-2">
+            <p className="text-xs text-muted-foreground" data-testid="text-controls-hint">
+              Press <kbd className="px-1.5 py-0.5 text-xs font-mono bg-muted rounded">C</kbd> for controls
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
