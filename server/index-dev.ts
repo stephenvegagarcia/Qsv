@@ -23,8 +23,12 @@ export async function setupVite(app: Express, server: Server) {
     customLogger: {
       ...viteLogger,
       error: (msg, options) => {
+        // Log the error but don't exit on WebSocket errors (non-fatal)
         viteLogger.error(msg, options);
-        process.exit(1);
+        // Only exit on critical errors, not WebSocket frame errors
+        if (msg && !msg.includes('ws error') && !msg.includes('WebSocket')) {
+          process.exit(1);
+        }
       },
     },
     server: serverOptions,

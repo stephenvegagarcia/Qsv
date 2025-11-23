@@ -11,9 +11,9 @@ import math
 import time
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass, field
-from qiskit import QuantumCircuit, transpile
-from qiskit.primitives import Sampler
+from qiskit import QuantumCircuit
 from qiskit.quantum_info import Statevector
+from qiskit_aer import AerSimulator
 import threading
 import queue
 
@@ -70,7 +70,7 @@ class QuantumAudioProcessor:
     
     def __init__(self, num_qubits: int = 4):
         self.num_qubits = num_qubits
-        self.sampler = Sampler()
+        self.simulator = AerSimulator()
         
     def process_frequencies(self, frequencies: np.ndarray, enhancement_level: float = 0.5) -> Dict:
         """Process audio frequencies through quantum circuit"""
@@ -96,12 +96,19 @@ class QuantumAudioProcessor:
             for i in range(self.num_qubits):
                 qc.h(i)
             
-            qc.measure(range(self.num_qubits), range(self.num_qubits))
+            # Save statevector before measurement for analysis
+            qc.save_statevector()
             
-            # Execute
-            job = self.sampler.run(qc, shots=256)
-            result = job.result()
-            quasi_dists = result.quasi_dists[0]
+            # Add measurements
+            qc.measure_all()
+            
+            # Execute circuit
+            result = self.simulator.run(qc, shots=256).result()
+            counts = result.get_counts()
+            
+            # Convert counts to probability distribution
+            total_shots = sum(counts.values())
+            quasi_dists = {bitstring: count/total_shots for bitstring, count in counts.items()}
             
             # Extract enhanced frequencies
             enhanced = self._enhance_frequencies(frequencies, quasi_dists, enhancement_level)

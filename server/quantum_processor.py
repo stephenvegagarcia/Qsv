@@ -8,9 +8,9 @@ import json
 import sys
 import numpy as np
 from typing import List, Dict, Any, Optional
-from qiskit import QuantumCircuit, transpile
-from qiskit.primitives import Sampler
+from qiskit import QuantumCircuit
 from qiskit.quantum_info import Statevector
+from qiskit_aer import AerSimulator
 import scipy.signal as signal
 
 
@@ -19,7 +19,7 @@ class QuantumAudioProcessor:
     
     def __init__(self, num_qubits: int = 4):
         self.num_qubits = num_qubits
-        self.sampler = Sampler()
+        self.simulator = AerSimulator()
         
     def create_enhancement_circuit(self, frequencies: List[float]) -> QuantumCircuit:
         """
@@ -47,7 +47,7 @@ class QuantumAudioProcessor:
             qc.h(i)
         
         # Measure all qubits
-        qc.measure(range(self.num_qubits), range(self.num_qubits))
+        qc.measure_all()
         
         return qc
     
@@ -72,11 +72,12 @@ class QuantumAudioProcessor:
             circuit_depth = qc.depth()
             
             # Run quantum circuit
-            job = self.sampler.run(qc, shots=1024)
-            result = job.result()
+            result = self.simulator.run(qc, shots=1024).result()
+            counts = result.get_counts()
             
-            # Extract measurement results
-            quasi_dists = result.quasi_dists[0]
+            # Convert counts to probability distribution
+            total_shots = sum(counts.values())
+            quasi_dists = {bitstring: count/total_shots for bitstring, count in counts.items()}
             
             # Convert quantum measurements back to enhanced frequencies
             enhanced_frequencies = self._extract_enhanced_frequencies(
@@ -126,8 +127,9 @@ class QuantumAudioProcessor:
         
         # Use quantum measurement probabilities to enhance signal
         for bitstring, probability in quasi_dists.items():
-            # Convert bitstring to enhancement factor
-            binary_val = int(bitstring, 2) if isinstance(bitstring, str) else bitstring
+            # Convert bitstring to enhancement factor (remove spaces from bitstring)
+            clean_bitstring = bitstring.replace(' ', '') if isinstance(bitstring, str) else str(bitstring)
+            binary_val = int(clean_bitstring, 2)
             factor = 1.0 + (probability * enhancement_level * 0.5)
             
             # Apply enhancement to corresponding frequency bins
