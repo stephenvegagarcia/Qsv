@@ -30,7 +30,7 @@ Preferred communication style: Simple, everyday language.
 
 **Component Structure:**
 - `SonarCanvas` / `SonarCanvas2D`: Main visualization components handling Three.js scene rendering
-- `HUDOverlay`: Displays real-time metrics (audio level, pulse count, quantum status, entropy values)
+- `HUDOverlay`: Displays real-time metrics (audio level, pulse count, quantum status, detection range, acoustic weather conditions)
 - `ControlPanel`: Collapsible settings interface for FFT size, sensitivity, quantum modes, enhancement level, and noise reflection toggle
 - `DetectionPanel`: Shows detected environmental objects with direction and distance
 - `ThemeToggle`: Light/dark mode switcher
@@ -97,8 +97,46 @@ Preferred communication style: Simple, everyday language.
 Audio Input → AGC → FFT Analysis → Quantum Circuit Encoding → 
 CNOT Entanglement → H-X-X-H Pattern → Measurement → Entropy Calculation →
 Signal Enhancement → Noise Reflection (if enabled) → Distance Estimation → 
-Visualization Update
+Weather Detection → Visualization Update
 ```
+
+### Acoustic Weather Detection
+
+**Detection Algorithm:**
+The application analyzes frequency patterns in real-time audio to detect environmental acoustic conditions without external APIs or sensors.
+
+**Weather Classification:**
+1. **Thunder**: Detected when volume exceeds 150 AND low-frequency average exceeds 100
+   - Indicates sudden loud bursts with strong low-frequency components
+2. **Rain**: Detected when high-frequency average exceeds 60 AND is 1.5x higher than low frequencies
+   - White noise pattern characteristic of rainfall
+3. **Wind**: Detected when low-frequency average exceeds 50 AND is 1.3x higher than mid frequencies
+   - Rumbling pattern from air movement
+4. **Clear**: Default state when no specific weather pattern is detected
+5. **Unknown**: Initial state before sufficient samples are collected
+
+**Frequency Band Analysis:**
+- **Low Band**: 0-20% of frequency spectrum (bass/rumble)
+- **Mid Band**: 20-60% of frequency spectrum (speech/music range)
+- **High Band**: 60-100% of frequency spectrum (hiss/noise)
+
+**Smoothing Algorithm:**
+- Maintains 10-sample rolling history of detected conditions
+- Returns dominant weather condition from history
+- Prevents rapid flickering between states
+- Updates every animation frame (~60fps)
+
+**Display Integration:**
+- Real-time display in HUD overlay with weather-specific icons
+- Color coding: Yellow (Clear/Sun), Blue (Rain/CloudRain), Cyan (Wind), Purple (Thunder/CloudLightning)
+- Labeled as "Acoustic Weather" to distinguish from meteorological data
+- Updates continuously based on microphone input
+
+**Implementation:**
+- Integrated into audio analyzer hook (`use-audio-analyzer.ts`)
+- No external API dependencies
+- Purely client-side processing
+- Part of the AudioAnalysis data structure with WeatherCondition type
 
 ### Data Storage
 
