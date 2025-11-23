@@ -30,8 +30,8 @@ Preferred communication style: Simple, everyday language.
 
 **Component Structure:**
 - `SonarCanvas` / `SonarCanvas2D`: Main visualization components handling Three.js scene rendering
-- `HUDOverlay`: Displays real-time metrics (audio level, pulse count, quantum status)
-- `ControlPanel`: Collapsible settings interface for FFT size, sensitivity, quantum modes
+- `HUDOverlay`: Displays real-time metrics (audio level, pulse count, quantum status, entropy values)
+- `ControlPanel`: Collapsible settings interface for FFT size, sensitivity, quantum modes, enhancement level, and noise reflection toggle
 - `DetectionPanel`: Shows detected environmental objects with direction and distance
 - `ThemeToggle`: Light/dark mode switcher
 
@@ -67,24 +67,37 @@ Preferred communication style: Simple, everyday language.
 ### Quantum Processing Pipeline
 
 **Quantum Enhancement Approach:**
-1. Normalize audio frequency data to [0, 1] range
-2. Encode frequencies into quantum states using Ry and Rz rotation gates
-3. Apply CNOT gates for entanglement between adjacent qubits
-4. Use Hadamard gates to create superposition states
-5. Measure quantum states and enhance original frequencies
-6. Estimate detection distance from quantum-processed signal strength
+1. Apply Automatic Gain Control (AGC) to maintain consistent audio levels (target: 50/255, gain: 0.5x-4.0x)
+2. Normalize audio frequency data to [0, 1] range
+3. Encode frequencies into quantum states using Ry and Rz rotation gates
+4. Apply forward CNOT entanglement (i → i+1) between adjacent qubits
+5. Apply reverse CNOT entanglement (i → i-1) when noise mode is enabled
+6. Apply H-X-X-H gate pattern (0110 encoding): Hadamard on qubits 0 and 3, X gates on qubits 1 and 2
+7. Measure quantum states and calculate Shannon entropy from measurement counts
+8. Enhance original frequencies based on quantum measurements
+9. Apply reverse noise reflection when noise mode is enabled (entropy-weighted blending)
+10. Estimate detection distance from quantum-processed signal strength
 
 **Technology:**
 - Qiskit quantum computing framework
 - Statevector simulation for circuit execution
-- 4-qubit circuits (configurable) for frequency encoding
+- 4-qubit circuits with H-X-X-H pattern and CNOT entanglement
+- Shannon entropy calculation for quantum state analysis
 - Signal processing with NumPy and SciPy
+
+**Advanced Features:**
+- **Automatic Gain Control**: Maintains consistent audio levels regardless of microphone sensitivity
+- **H-X-X-H Pattern**: Specific quantum gate arrangement (0110 encoding) for enhanced signal processing
+- **CNOT Entanglement**: Forward and reverse entanglement patterns for improved detection
+- **Entropy Tracking**: Shannon entropy calculation from quantum measurements, displayed in HUD
+- **Noise Mode**: Reverse noise reflection using entropy-weighted blending for enhanced environmental detection
 
 **Processing Flow:**
 ```
-Audio Input → FFT Analysis → Quantum Circuit Encoding → 
-Quantum Operations → Measurement → Signal Enhancement → 
-Distance Estimation → Visualization Update
+Audio Input → AGC → FFT Analysis → Quantum Circuit Encoding → 
+CNOT Entanglement → H-X-X-H Pattern → Measurement → Entropy Calculation →
+Signal Enhancement → Noise Reflection (if enabled) → Distance Estimation → 
+Visualization Update
 ```
 
 ### Data Storage

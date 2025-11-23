@@ -50,10 +50,19 @@ export default function SonarPage() {
     }
   }, [settings.fftSize, audio.ready, audio]);
 
+  // Update quantum status based on mode
+  useEffect(() => {
+    if (settings.quantumMode === 'off') {
+      setQuantumStatus('idle');
+    } else if (settings.quantumMode !== 'off') {
+      // Only set to ready if currently idle
+      setQuantumStatus(prev => prev === 'idle' ? 'ready' : prev);
+    }
+  }, [settings.quantumMode]);
+
   // Simulate basic detection based on audio analysis
   useEffect(() => {
     if (!audioAnalysis || settings.quantumMode === 'off') {
-      setQuantumStatus('idle');
       return;
     }
 
@@ -82,20 +91,8 @@ export default function SonarPage() {
       setDetections(prev => [detection, ...prev].slice(0, 10));
       
       setTimeout(() => setQuantumStatus('ready'), 100);
-    } else if (audioAnalysis && !audioAnalysis.isBeat) {
-      // Reset to ready when not in beat
-      setQuantumStatus('ready');
     }
   }, [audioAnalysis, settings.quantumMode]);
-
-  // Update quantum status based on mode
-  useEffect(() => {
-    if (settings.quantumMode === 'off') {
-      setQuantumStatus('idle');
-    } else {
-      setQuantumStatus('ready');
-    }
-  }, [settings.quantumMode]);
 
   const handlePulseCreate = useCallback((pulse: Pulse) => {
     setPulses(prev => [...prev, pulse].slice(-10));
