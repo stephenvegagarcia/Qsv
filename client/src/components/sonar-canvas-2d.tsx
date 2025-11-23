@@ -51,7 +51,7 @@ export function SonarCanvas2D({
         startTime: now,
         speed: 15,
         intensity: pulseIntensity,
-        maxDistance
+        maxDistance: maxPulseDistance
       };
 
       pulsesRef.current.push(pulse);
