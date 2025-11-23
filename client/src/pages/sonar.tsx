@@ -24,6 +24,7 @@ export default function SonarPage() {
     enhancementLevel: 50,
     gridOpacity: 20,
     pulseColorIntensity: 80,
+    noiseMode: false,
   });
 
   // Audio analysis loop

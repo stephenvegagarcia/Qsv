@@ -140,6 +140,19 @@ export function ControlPanel({ settings, onSettingsChange }: ControlPanelProps) 
                     disabled={settings.quantumMode === 'off'}
                   />
                 </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="noise-mode" className="text-xs text-muted-foreground">
+                    Noise Reflection
+                  </Label>
+                  <Switch
+                    id="noise-mode"
+                    data-testid="switch-noise-mode"
+                    checked={settings.noiseMode}
+                    onCheckedChange={(checked) => onSettingsChange({ noiseMode: checked })}
+                    disabled={settings.quantumMode === 'off'}
+                  />
+                </div>
               </div>
             )}
           </div>

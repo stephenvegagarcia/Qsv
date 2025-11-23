@@ -64,6 +64,7 @@ export const settingsSchema = z.object({
   enhancementLevel: z.number().min(0).max(100).default(50),
   gridOpacity: z.number().min(0).max(100).default(20),
   pulseColorIntensity: z.number().min(0).max(100).default(80),
+  noiseMode: z.boolean().default(false),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;

@@ -71,9 +71,11 @@ class QuantumAudioProcessor:
     def __init__(self, num_qubits: int = 4):
         self.num_qubits = num_qubits
         self.simulator = AerSimulator()
+        self.noise_mode = False
+        self.entropy_history = []
         
     def process_frequencies(self, frequencies: np.ndarray, enhancement_level: float = 0.5) -> Dict:
-        """Process audio frequencies through quantum circuit"""
+        """Process audio frequencies through quantum circuit with H-X-X-H pattern and entropy tracking"""
         try:
             # Normalize frequencies
             max_freq = np.max(frequencies) if np.max(frequencies) > 0 else 1.0
@@ -82,21 +84,30 @@ class QuantumAudioProcessor:
             # Create quantum circuit
             qc = QuantumCircuit(self.num_qubits, self.num_qubits)
             
-            # Encode frequencies
+            # Encode frequencies with rotation gates first
             for i, freq in enumerate(normalized):
                 angle = freq * np.pi / 2
                 qc.ry(angle, i)
                 qc.rz(freq * np.pi, i)
             
-            # Entangle qubits
+            # CNOT entanglement layer - create full entanglement
             for i in range(self.num_qubits - 1):
                 qc.cx(i, i + 1)
+            # Reverse entanglement for noise reflection
+            if self.noise_mode:
+                for i in range(self.num_qubits - 1, 0, -1):
+                    qc.cx(i, i - 1)
             
-            # Superposition
-            for i in range(self.num_qubits):
-                qc.h(i)
+            # Apply H-X-X-H pattern (0110 encoding)
+            # Qubit 0: H, Qubit 1: X, Qubit 2: X, Qubit 3: H
+            pattern_hxxh = ['h', 'x', 'x', 'h']  # H-X-X-H pattern
+            for i in range(min(self.num_qubits, len(pattern_hxxh))):
+                if pattern_hxxh[i] == 'h':
+                    qc.h(i)
+                elif pattern_hxxh[i] == 'x':
+                    qc.x(i)
             
-            # Save statevector before measurement for analysis
+            # Save statevector for entropy calculation
             qc.save_statevector()
             
             # Add measurements
@@ -105,6 +116,13 @@ class QuantumAudioProcessor:
             # Execute circuit
             result = self.simulator.run(qc, shots=256).result()
             counts = result.get_counts()
+            statevector = result.data(0).get('statevector', None)
+            
+            # Calculate entropy to track quantum information
+            entropy = self._calculate_entropy(counts)
+            self.entropy_history.append(entropy)
+            if len(self.entropy_history) > 100:
+                self.entropy_history.pop(0)
             
             # Convert counts to probability distribution
             total_shots = sum(counts.values())
@@ -112,6 +130,10 @@ class QuantumAudioProcessor:
             
             # Extract enhanced frequencies
             enhanced = self._enhance_frequencies(frequencies, quasi_dists, enhancement_level)
+            
+            # Apply reverse noise reflection if enabled
+            if self.noise_mode:
+                enhanced = self._apply_reverse_noise(enhanced, entropy)
             
             # Estimate detection distance
             distance = self._estimate_distance(frequencies, enhanced, enhancement_level)
@@ -123,6 +145,7 @@ class QuantumAudioProcessor:
                 'enhanced': enhanced,
                 'distance': distance,
                 'confidence': min(1.0, confidence * 2.0),
+                'entropy': entropy,
                 'circuit_depth': qc.depth()
             }
             
@@ -132,6 +155,7 @@ class QuantumAudioProcessor:
                 'enhanced': frequencies,
                 'distance': None,
                 'confidence': 0.0,
+                'entropy': 0.0,
                 'circuit_depth': 0
             }
     
@@ -166,6 +190,41 @@ class QuantumAudioProcessor:
         estimated = base_distance * distance_factor
         
         return min(max(estimated, base_distance), max_distance)
+    
+    def _calculate_entropy(self, counts: Dict) -> float:
+        """Calculate Shannon entropy from measurement counts"""
+        total = sum(counts.values())
+        if total == 0:
+            return 0.0
+        
+        entropy = 0.0
+        for count in counts.values():
+            if count > 0:
+                p = count / total
+                entropy -= p * np.log2(p)
+        
+        return entropy
+    
+    def _apply_reverse_noise(self, frequencies: np.ndarray, entropy: float) -> np.ndarray:
+        """Apply reverse noise reflection to enhance signal detection"""
+        # Use entropy as a measure of quantum noise
+        # Higher entropy = more quantum noise = stronger reflection
+        noise_factor = min(1.0, entropy / 4.0)  # Normalize entropy (max ~4 for 4 qubits)
+        
+        # Normalize the enhanced frequencies to 0-1 range for safe blending
+        max_val = np.max(frequencies) if np.max(frequencies) > 0 else 1.0
+        normalized_freq = frequencies / max_val
+        
+        # Create reverse noise by inverting the frequency spectrum
+        reversed_spectrum = normalized_freq[::-1]
+        
+        # Blend original with reversed spectrum based on noise level
+        blended = normalized_freq * (1.0 - noise_factor * 0.3) + reversed_spectrum * (noise_factor * 0.3)
+        
+        # Scale back to original magnitude range
+        enhanced = blended * max_val
+        
+        return enhanced
 
 
 class AudioAnalyzer:
@@ -251,6 +310,7 @@ class QuantumSonarVisualizer:
         self.running_average = 0.1
         self.gain = 1.0
         self.target_level = 0.3
+        self.entropy = 0.0
         
     def _init_particles(self) -> List[Dict]:
         """Initialize background particles"""
@@ -368,11 +428,24 @@ class QuantumSonarVisualizer:
         # Detection range
         cv2.putText(self.frame, f"Max Range: {int(self.max_detection_range)}px", 
                    (20, y_offset), font, font_scale, TEXT_COLOR, font_thickness)
+        y_offset += 30
+        
+        # Entropy
+        cv2.putText(self.frame, f"Entropy: {self.entropy:.2f}", 
+                   (20, y_offset), font, font_scale, TEXT_COLOR, font_thickness)
+        y_offset += 30
+        
+        # Noise mode
+        noise_status = "ON" if self.quantum_processor.noise_mode else "OFF"
+        noise_color = ACCENT_COLOR if self.quantum_processor.noise_mode else TEXT_COLOR
+        cv2.putText(self.frame, f"Noise Reflection: {noise_status}", 
+                   (20, y_offset), font, font_scale, noise_color, font_thickness)
         
         # Instructions
         instructions = [
             "Space: Toggle Quantum Enhancement",
             "+/-: Adjust Enhancement Level",
+            "N: Toggle Noise Reflection",
             "ESC: Exit"
         ]
         
@@ -439,6 +512,7 @@ class QuantumSonarVisualizer:
                 
                 self.processing_time = (time.time() - start) * 1000
                 self.quantum_status = "Ready"
+                self.entropy = result.get('entropy', 0.0)
                 
                 # Create pulse with quantum-enhanced range
                 max_dist = 200 + (self.enhancement_level * 300)
@@ -516,6 +590,10 @@ class QuantumSonarVisualizer:
             elif key == ord('-'):
                 self.enhancement_level = max(0.0, self.enhancement_level - 0.1)
                 print(f"Enhancement level: {int(self.enhancement_level * 100)}%")
+            elif key == ord('n') or key == ord('N'):
+                self.quantum_processor.noise_mode = not self.quantum_processor.noise_mode
+                status = "ENABLED" if self.quantum_processor.noise_mode else "DISABLED"
+                print(f"Noise reflection mode: {status}")
             
             # Process audio
             audio_data = self.audio_analyzer.get_audio_data()
