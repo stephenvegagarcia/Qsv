@@ -41,7 +41,7 @@ export default function SonarPage() {
 
     analyzeAudio();
     return () => cancelAnimationFrame(frameId);
-  }, [audio.ready, audio]);
+  }, [audio.ready]);
 
   // Update FFT size when settings change
   useEffect(() => {
@@ -49,7 +49,7 @@ export default function SonarPage() {
       const fftSize = parseInt(settings.fftSize);
       audio.updateFFTSize(fftSize);
     }
-  }, [settings.fftSize, audio.ready, audio]);
+  }, [settings.fftSize, audio.ready]);
 
   // Track last beat detection time to prevent duplicate triggers
   const lastBeatTimeRef = useRef(0);
