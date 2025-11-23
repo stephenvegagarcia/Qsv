@@ -68,28 +68,6 @@ export const settingsSchema = z.object({
 
 export type Settings = z.infer<typeof settingsSchema>;
 
-// WebSocket Message Types
-export const wsMessageSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("audio_data"),
-    payload: audioAnalysisSchema,
-  }),
-  z.object({
-    type: z.literal("quantum_result"),
-    payload: quantumResultSchema,
-  }),
-  z.object({
-    type: z.literal("detection"),
-    payload: detectionSchema,
-  }),
-  z.object({
-    type: z.literal("settings_update"),
-    payload: settingsSchema.partial(),
-  }),
-]);
-
-export type WSMessage = z.infer<typeof wsMessageSchema>;
-
 // Keep existing user schema for auth (if needed later)
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

@@ -4,7 +4,7 @@ Quantum Audio Sonar - Live Environmental Mapping
 Uses Qiskit quantum computing to enhance audio and visualize sound waves
 """
 
-import pygame
+import cv2
 import numpy as np
 import pyaudio
 import math
@@ -28,13 +28,13 @@ FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 44100
 
-# Colors (Cyan/Magenta cyberpunk theme)
-BG_COLOR = (10, 15, 20)
-GRID_COLOR = (0, 255, 255, 50)
-PULSE_COLOR = (0, 255, 255)
+# Colors (Cyan/Magenta cyberpunk theme) - BGR format for OpenCV
+BG_COLOR = (20, 15, 10)
+GRID_COLOR = (255, 255, 0)
+PULSE_COLOR = (255, 255, 0)
 ACCENT_COLOR = (255, 0, 255)
-TEXT_COLOR = (0, 255, 255)
-DETECTION_COLOR = (0, 255, 100)
+TEXT_COLOR = (255, 255, 0)
+DETECTION_COLOR = (100, 255, 0)
 
 
 @dataclass
@@ -224,12 +224,8 @@ class QuantumSonarVisualizer:
     """Main sonar visualization application"""
     
     def __init__(self):
-        pygame.init()
-        self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-        pygame.display.set_caption("Quantum Audio Sonar - Live Environmental Mapping")
-        self.clock = pygame.time.Clock()
-        self.font = pygame.font.Font(None, 24)
-        self.font_small = pygame.font.Font(None, 18)
+        cv2.namedWindow("Quantum Audio Sonar - Live Environmental Mapping", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("Quantum Audio Sonar - Live Environmental Mapping", WINDOW_WIDTH, WINDOW_HEIGHT)
         
         self.center_x = WINDOW_WIDTH // 2
         self.center_y = WINDOW_HEIGHT // 2
@@ -250,6 +246,7 @@ class QuantumSonarVisualizer:
         self.quantum_status = "Idle"
         self.audio_level = 0
         self.processing_time = 0
+        self.frame = None
         
     def _init_particles(self) -> List[Dict]:
         """Initialize background particles"""
@@ -267,24 +264,22 @@ class QuantumSonarVisualizer:
     def draw_grid(self):
         """Draw background grid"""
         grid_size = 50
-        alpha = 30
         
         for i in range(-10, 11):
             x = self.center_x + i * grid_size
             y = self.center_y + i * grid_size
             
             # Vertical lines
-            pygame.draw.line(self.screen, GRID_COLOR, 
-                           (x, 0), (x, WINDOW_HEIGHT), 1)
+            if 0 <= x <= WINDOW_WIDTH:
+                cv2.line(self.frame, (x, 0), (x, WINDOW_HEIGHT), GRID_COLOR, 1)
             # Horizontal lines
-            pygame.draw.line(self.screen, GRID_COLOR,
-                           (0, y), (WINDOW_WIDTH, y), 1)
+            if 0 <= y <= WINDOW_HEIGHT:
+                cv2.line(self.frame, (0, y), (WINDOW_WIDTH, y), GRID_COLOR, 1)
         
         # Range circles
         for i in range(1, 6):
             radius = i * 80
-            pygame.draw.circle(self.screen, GRID_COLOR,
-                             (self.center_x, self.center_y), radius, 1)
+            cv2.circle(self.frame, (self.center_x, self.center_y), radius, GRID_COLOR, 1)
     
     def draw_particles(self):
         """Draw background particles"""
@@ -301,8 +296,8 @@ class QuantumSonarVisualizer:
             px = int(self.center_x + particle['x'])
             py = int(self.center_y + particle['y'])
             
-            color = (*PULSE_COLOR[:3], int(particle['alpha'] * 100))
-            pygame.draw.circle(self.screen, PULSE_COLOR, (px, py), 2)
+            if 0 <= px < WINDOW_WIDTH and 0 <= py < WINDOW_HEIGHT:
+                cv2.circle(self.frame, (px, py), 2, PULSE_COLOR, -1)
     
     def draw_pulses(self, current_time: float):
         """Draw sonar pulses"""
@@ -312,25 +307,14 @@ class QuantumSonarVisualizer:
             radius = pulse.get_radius(current_time)
             age = current_time - pulse.start_time
             
-            # Fade out as pulse expands
-            fade_start = pulse.max_distance * 0.7
-            if radius > fade_start:
-                fade_progress = (radius - fade_start) / (pulse.max_distance - fade_start)
-                alpha = int(255 * pulse.intensity * (1 - fade_progress))
-            else:
-                alpha = int(255 * pulse.intensity)
-            
             # Main ring
-            color = (*PULSE_COLOR, min(alpha, 255))
-            pygame.draw.circle(self.screen, PULSE_COLOR,
-                             (int(pulse.x), int(pulse.y)), int(radius), 2)
+            cv2.circle(self.frame, (int(pulse.x), int(pulse.y)), int(radius), PULSE_COLOR, 2)
             
             # Scan line effect
             scan_angle = age * 2
-            end_x = pulse.x + math.cos(scan_angle) * radius
-            end_y = pulse.y + math.sin(scan_angle) * radius
-            pygame.draw.line(self.screen, PULSE_COLOR,
-                           (pulse.x, pulse.y), (end_x, end_y), 2)
+            end_x = int(pulse.x + math.cos(scan_angle) * radius)
+            end_y = int(pulse.y + math.sin(scan_angle) * radius)
+            cv2.line(self.frame, (int(pulse.x), int(pulse.y)), (end_x, end_y), PULSE_COLOR, 2)
     
     def draw_frequency_bars(self, frequencies: np.ndarray):
         """Draw frequency visualization around center"""
@@ -347,38 +331,39 @@ class QuantumSonarVisualizer:
             bar_height = value * 100
             angle = i * angle_step
             
-            x1 = self.center_x + math.cos(angle) * inner_radius
-            y1 = self.center_y + math.sin(angle) * inner_radius
-            x2 = self.center_x + math.cos(angle) * (inner_radius + bar_height)
-            y2 = self.center_y + math.sin(angle) * (inner_radius + bar_height)
+            x1 = int(self.center_x + math.cos(angle) * inner_radius)
+            y1 = int(self.center_y + math.sin(angle) * inner_radius)
+            x2 = int(self.center_x + math.cos(angle) * (inner_radius + bar_height))
+            y2 = int(self.center_y + math.sin(angle) * (inner_radius + bar_height))
             
-            alpha = int(value * 255)
-            color = (*PULSE_COLOR, min(alpha, 255))
-            pygame.draw.line(self.screen, PULSE_COLOR, (x1, y1), (x2, y2), 2)
+            cv2.line(self.frame, (x1, y1), (x2, y2), PULSE_COLOR, 2)
     
     def draw_hud(self):
         """Draw heads-up display"""
-        y_offset = 20
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.5
+        font_thickness = 1
+        y_offset = 30
         
         # Audio level
-        text = self.font_small.render(f"Audio Level: {int(self.audio_level * 100)}%", True, TEXT_COLOR)
-        self.screen.blit(text, (20, y_offset))
+        cv2.putText(self.frame, f"Audio Level: {int(self.audio_level * 100)}%", 
+                   (20, y_offset), font, font_scale, TEXT_COLOR, font_thickness)
         y_offset += 30
         
         # Pulse count
-        text = self.font_small.render(f"Active Pulses: {len(self.pulses)}", True, TEXT_COLOR)
-        self.screen.blit(text, (20, y_offset))
+        cv2.putText(self.frame, f"Active Pulses: {len(self.pulses)}", 
+                   (20, y_offset), font, font_scale, TEXT_COLOR, font_thickness)
         y_offset += 30
         
         # Quantum status
         status_color = DETECTION_COLOR if self.quantum_status == "Ready" else TEXT_COLOR
-        text = self.font_small.render(f"Quantum: {self.quantum_status}", True, status_color)
-        self.screen.blit(text, (20, y_offset))
+        cv2.putText(self.frame, f"Quantum: {self.quantum_status}", 
+                   (20, y_offset), font, font_scale, status_color, font_thickness)
         y_offset += 30
         
         # Detection range
-        text = self.font_small.render(f"Max Range: {int(self.max_detection_range)}px", True, TEXT_COLOR)
-        self.screen.blit(text, (20, y_offset))
+        cv2.putText(self.frame, f"Max Range: {int(self.max_detection_range)}px", 
+                   (20, y_offset), font, font_scale, TEXT_COLOR, font_thickness)
         
         # Instructions
         instructions = [
@@ -389,20 +374,17 @@ class QuantumSonarVisualizer:
         
         y_pos = WINDOW_HEIGHT - 80
         for instruction in instructions:
-            text = self.font_small.render(instruction, True, TEXT_COLOR)
-            self.screen.blit(text, (20, y_pos))
+            cv2.putText(self.frame, instruction, (20, y_pos), font, font_scale, TEXT_COLOR, font_thickness)
             y_pos += 25
     
     def draw_center_indicator(self):
         """Draw center position indicator"""
         # Pulsing glow
-        glow_radius = 10 + math.sin(time.time() * 3) * 3
-        pygame.draw.circle(self.screen, PULSE_COLOR,
-                         (self.center_x, self.center_y), int(glow_radius), 0)
+        glow_radius = int(10 + math.sin(time.time() * 3) * 3)
+        cv2.circle(self.frame, (self.center_x, self.center_y), glow_radius, PULSE_COLOR, -1)
         
         # Center dot
-        pygame.draw.circle(self.screen, ACCENT_COLOR,
-                         (self.center_x, self.center_y), 4, 0)
+        cv2.circle(self.frame, (self.center_x, self.center_y), 4, ACCENT_COLOR, -1)
     
     def process_audio(self, audio_data: np.ndarray):
         """Process audio data and create pulses"""
@@ -495,27 +477,28 @@ class QuantumSonarVisualizer:
         
         running = True
         frequencies = np.array([])
+        last_time = time.time()
         
         while running:
             current_time = time.time()
             
-            # Handle events
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        running = False
-                    elif event.key == pygame.K_SPACE:
-                        self.quantum_enabled = not self.quantum_enabled
-                        status = "ENABLED" if self.quantum_enabled else "DISABLED"
-                        print(f"Quantum enhancement: {status}")
-                    elif event.key == pygame.K_PLUS or event.key == pygame.K_EQUALS:
-                        self.enhancement_level = min(1.0, self.enhancement_level + 0.1)
-                        print(f"Enhancement level: {int(self.enhancement_level * 100)}%")
-                    elif event.key == pygame.K_MINUS:
-                        self.enhancement_level = max(0.0, self.enhancement_level - 0.1)
-                        print(f"Enhancement level: {int(self.enhancement_level * 100)}%")
+            # Create frame
+            self.frame = np.full((WINDOW_HEIGHT, WINDOW_WIDTH, 3), BG_COLOR, dtype=np.uint8)
+            
+            # Handle keyboard events
+            key = cv2.waitKey(1) & 0xFF
+            if key == 27:  # ESC
+                running = False
+            elif key == ord(' '):
+                self.quantum_enabled = not self.quantum_enabled
+                status = "ENABLED" if self.quantum_enabled else "DISABLED"
+                print(f"Quantum enhancement: {status}")
+            elif key == ord('+') or key == ord('='):
+                self.enhancement_level = min(1.0, self.enhancement_level + 0.1)
+                print(f"Enhancement level: {int(self.enhancement_level * 100)}%")
+            elif key == ord('-'):
+                self.enhancement_level = max(0.0, self.enhancement_level - 0.1)
+                print(f"Enhancement level: {int(self.enhancement_level * 100)}%")
             
             # Process audio
             audio_data = self.audio_analyzer.get_audio_data()
@@ -523,7 +506,6 @@ class QuantumSonarVisualizer:
                 frequencies = self.process_audio(audio_data)
             
             # Draw
-            self.screen.fill(BG_COLOR)
             self.draw_grid()
             self.draw_particles()
             self.draw_pulses(current_time)
@@ -531,12 +513,18 @@ class QuantumSonarVisualizer:
             self.draw_center_indicator()
             self.draw_hud()
             
-            pygame.display.flip()
-            self.clock.tick(FPS)
+            # Display frame
+            cv2.imshow("Quantum Audio Sonar - Live Environmental Mapping", self.frame)
+            
+            # Frame rate control
+            elapsed = time.time() - last_time
+            if elapsed < 1.0 / FPS:
+                time.sleep(1.0 / FPS - elapsed)
+            last_time = time.time()
         
         # Cleanup
         self.audio_analyzer.stop()
-        pygame.quit()
+        cv2.destroyAllWindows()
         print("Quantum Audio Sonar terminated.")
 
 

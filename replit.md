@@ -4,7 +4,7 @@
 
 Quantum Audio Sonar is a specialized audio visualization application that maps environments through sound waves using quantum-enhanced signal processing. The application captures real-time microphone input, processes it through Qiskit quantum circuits, and displays an interactive 3D sonar visualization with cyberpunk aesthetics.
 
-The system offers both a Python Pygame version (recommended) and a web-based version built with React, TypeScript, and Three.js. It combines real-time audio analysis, quantum computing algorithms, and advanced 3D visualization to create an immersive environmental mapping experience.
+The system offers both a Python OpenCV version (recommended for desktop use) and a web-based version built with React, TypeScript, and Three.js. It combines real-time audio analysis, quantum computing algorithms, and advanced visualization to create an immersive environmental mapping experience.
 
 ## User Preferences
 
@@ -37,28 +37,27 @@ Preferred communication style: Simple, everyday language.
 
 **Key Features:**
 - Real-time audio analysis using Web Audio API (AudioContext, AnalyserNode)
-- Custom hooks for audio processing (`use-audio-analyzer`) and WebSocket communication (`use-quantum-websocket`)
+- Custom hooks for audio processing (`use-audio-analyzer`)
 - Dynamic Three.js scene management with fog, lighting, and particle effects
-- Responsive sonar pulse visualization with adaptive range based on quantum processing
+- Responsive sonar pulse visualization with simulated quantum processing
 
 ### Backend Architecture
 
 **Technology Stack:**
 - Node.js with Express server
 - TypeScript for type safety
-- WebSocket (ws library) for real-time bidirectional communication
-- Python 3 integration for quantum processing via child processes
+- Python 3 integration for quantum processing
 
 **Server Structure:**
 - `server/app.ts`: Express application setup with JSON body parsing and logging
-- `server/routes.ts`: WebSocket server and API endpoint registration
+- `server/routes.ts`: API endpoint registration
 - `server/quantum_service.ts`: Service layer spawning Python quantum processor
 - `server/quantum_processor.py`: Qiskit-based quantum audio enhancement
 
 **Communication Pattern:**
 - HTTP REST endpoint for health checks
-- WebSocket connection for streaming audio data and quantum results
-- Message-based protocol with typed payloads (audio_data, quantum_result, settings_update, detection)
+- No real-time WebSocket communication (removed)
+- Standalone Python application for desktop use
 
 **Python Integration:**
 - Spawns Python subprocess to execute Qiskit quantum circuits
@@ -122,8 +121,8 @@ Distance Estimation → Visualization Update
 
 **Python Libraries:**
 - Qiskit: Quantum circuit creation and simulation
-- PyAudio: Audio stream capture for Pygame version
-- Pygame: Desktop application rendering and event handling
+- PyAudio: Audio stream capture for desktop version
+- OpenCV (cv2): Desktop application rendering and visualization
 - NumPy: Numerical computations
 - SciPy: Signal processing utilities
 
