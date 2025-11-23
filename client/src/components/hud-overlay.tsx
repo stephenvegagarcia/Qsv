@@ -1,19 +1,21 @@
-import { Activity, Cpu, Radio, Ruler } from 'lucide-react';
+import { Activity, Cpu, Radio, Ruler, CloudRain, Wind, CloudLightning, Sun, HelpCircle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
-import type { AudioAnalysis } from '@shared/schema';
+import type { AudioAnalysis, WeatherCondition } from '@shared/schema';
 
 interface HUDOverlayProps {
   audioLevel: number;
   pulseCount: number;
   quantumStatus: 'idle' | 'ready' | 'processing';
   detectionRange: number;
+  weather?: WeatherCondition;
 }
 
 export function HUDOverlay({ 
   audioLevel, 
   pulseCount, 
   quantumStatus, 
-  detectionRange 
+  detectionRange,
+  weather = 'unknown'
 }: HUDOverlayProps) {
   const statusColors = {
     idle: 'text-muted-foreground',
@@ -26,6 +28,32 @@ export function HUDOverlay({
     ready: 'Ready',
     processing: 'Processing'
   };
+
+  const weatherIcons = {
+    clear: Sun,
+    rain: CloudRain,
+    wind: Wind,
+    thunder: CloudLightning,
+    unknown: HelpCircle
+  };
+
+  const weatherColors = {
+    clear: 'text-yellow-500',
+    rain: 'text-blue-500',
+    wind: 'text-cyan-500',
+    thunder: 'text-purple-500',
+    unknown: 'text-muted-foreground'
+  };
+
+  const weatherLabels = {
+    clear: 'Clear',
+    rain: 'Rain',
+    wind: 'Wind',
+    thunder: 'Thunder',
+    unknown: 'Unknown'
+  };
+
+  const WeatherIcon = weatherIcons[weather];
 
   return (
     <div className="fixed top-0 left-0 right-0 p-4 pointer-events-none z-10">
@@ -85,6 +113,19 @@ export function HUDOverlay({
               </div>
               <div className="text-base font-mono text-foreground">
                 {detectionRange.toFixed(1)}m
+              </div>
+            </div>
+          </div>
+
+          {/* Acoustic Weather */}
+          <div className="flex items-center gap-3">
+            <WeatherIcon className={`w-4 h-4 ${weatherColors[weather]}`} data-testid="icon-weather" />
+            <div>
+              <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                Acoustic Weather
+              </div>
+              <div className={`text-base font-medium ${weatherColors[weather]}`} data-testid="text-weather-condition">
+                {weatherLabels[weather]}
               </div>
             </div>
           </div>

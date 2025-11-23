@@ -3,12 +3,17 @@ import { pgTable, text, varchar, real, timestamp, jsonb } from "drizzle-orm/pg-c
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Weather Condition Detection
+export const weatherConditionSchema = z.enum(["clear", "rain", "wind", "thunder", "unknown"]);
+export type WeatherCondition = z.infer<typeof weatherConditionSchema>;
+
 // Audio Analysis Data
 export const audioAnalysisSchema = z.object({
   volume: z.number().min(0).max(255),
   frequencyData: z.array(z.number()),
   isBeat: z.boolean(),
   timestamp: z.number(),
+  weather: weatherConditionSchema.optional(),
 });
 
 export type AudioAnalysis = z.infer<typeof audioAnalysisSchema>;

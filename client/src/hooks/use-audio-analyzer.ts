@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import type { AudioAnalysis } from '@shared/schema';
+import type { AudioAnalysis, WeatherCondition } from '@shared/schema';
 
 export function useAudioAnalyzer() {
   const [ready, setReady] = useState(false);
@@ -12,6 +12,7 @@ export function useAudioAnalyzer() {
   const runningAverageRef = useRef<number>(30);
   const gainRef = useRef<number>(1.0);
   const targetLevelRef = useRef<number>(50);
+  const weatherHistoryRef = useRef<WeatherCondition[]>([]);
 
   const start = useCallback(async () => {
     if (ready) return;
@@ -67,9 +68,56 @@ export function useAudioAnalyzer() {
     streamRef.current = null;
   }, []);
 
+  const detectWeather = useCallback((frequencies: number[], volume: number): WeatherCondition => {
+    const len = frequencies.length;
+    const lowBand = frequencies.slice(0, Math.floor(len * 0.2));
+    const midBand = frequencies.slice(Math.floor(len * 0.2), Math.floor(len * 0.6));
+    const highBand = frequencies.slice(Math.floor(len * 0.6));
+    
+    const lowAvg = lowBand.reduce((a, b) => a + b, 0) / lowBand.length;
+    const midAvg = midBand.reduce((a, b) => a + b, 0) / midBand.length;
+    const highAvg = highBand.reduce((a, b) => a + b, 0) / highBand.length;
+    
+    let detected: WeatherCondition = "clear";
+    
+    if (volume > 150 && lowAvg > 100) {
+      detected = "thunder";
+    } else if (highAvg > 60 && highAvg > lowAvg * 1.5) {
+      detected = "rain";
+    } else if (lowAvg > 50 && lowAvg > midAvg * 1.3) {
+      detected = "wind";
+    }
+    
+    weatherHistoryRef.current.push(detected);
+    if (weatherHistoryRef.current.length > 10) {
+      weatherHistoryRef.current.shift();
+    }
+    
+    const counts: Record<WeatherCondition, number> = {
+      clear: 0,
+      rain: 0,
+      wind: 0,
+      thunder: 0,
+      unknown: 0
+    };
+    
+    weatherHistoryRef.current.forEach(w => counts[w]++);
+    
+    let maxCount = 0;
+    let dominantWeather: WeatherCondition = "clear";
+    for (const [weather, count] of Object.entries(counts)) {
+      if (count > maxCount) {
+        maxCount = count;
+        dominantWeather = weather as WeatherCondition;
+      }
+    }
+    
+    return dominantWeather;
+  }, []);
+
   const getAnalysis = useCallback((): AudioAnalysis => {
     if (!analyserRef.current || !dataArrayRef.current) {
-      return { volume: 0, frequencyData: [], isBeat: false, timestamp: Date.now() };
+      return { volume: 0, frequencyData: [], isBeat: false, timestamp: Date.now(), weather: "unknown" };
     }
 
     analyserRef.current.getByteFrequencyData(dataArrayRef.current);
@@ -98,14 +146,17 @@ export function useAudioAnalyzer() {
     
     const dynamicThreshold = targetLevelRef.current * 0.7;
     const isBeat = normalizedVolume > dynamicThreshold;
+    
+    const weather = detectWeather(normalizedFrequencies, normalizedVolume);
 
     return {
       volume: normalizedVolume,
       frequencyData: normalizedFrequencies,
       isBeat,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      weather
     };
-  }, []);
+  }, [detectWeather]);
 
   const updateFFTSize = useCallback((size: number) => {
     if (analyserRef.current) {
