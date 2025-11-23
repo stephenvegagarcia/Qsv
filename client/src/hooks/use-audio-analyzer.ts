@@ -8,6 +8,10 @@ export function useAudioAnalyzer() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const dataArrayRef = useRef<Uint8Array | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  
+  const runningAverageRef = useRef<number>(30);
+  const gainRef = useRef<number>(1.0);
+  const targetLevelRef = useRef<number>(50);
 
   const start = useCallback(async () => {
     if (ready) return;
@@ -79,12 +83,25 @@ export function useAudioAnalyzer() {
       frequencies.push(value);
     }
     
-    const volume = sum / dataArrayRef.current.length;
-    const isBeat = volume > 35; // Beat detection threshold
+    const rawVolume = sum / dataArrayRef.current.length;
+    
+    runningAverageRef.current = runningAverageRef.current * 0.95 + rawVolume * 0.05;
+    
+    if (runningAverageRef.current > 5) {
+      const targetGain = targetLevelRef.current / runningAverageRef.current;
+      gainRef.current = gainRef.current * 0.9 + targetGain * 0.1;
+      gainRef.current = Math.max(0.5, Math.min(4.0, gainRef.current));
+    }
+    
+    const normalizedVolume = Math.min(255, rawVolume * gainRef.current);
+    const normalizedFrequencies = frequencies.map(f => Math.min(255, f * gainRef.current));
+    
+    const dynamicThreshold = targetLevelRef.current * 0.7;
+    const isBeat = normalizedVolume > dynamicThreshold;
 
     return {
-      volume,
-      frequencyData: frequencies,
+      volume: normalizedVolume,
+      frequencyData: normalizedFrequencies,
       isBeat,
       timestamp: Date.now()
     };

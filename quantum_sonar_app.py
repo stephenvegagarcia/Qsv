@@ -248,6 +248,10 @@ class QuantumSonarVisualizer:
         self.processing_time = 0
         self.frame = None
         
+        self.running_average = 0.1
+        self.gain = 1.0
+        self.target_level = 0.3
+        
     def _init_particles(self) -> List[Dict]:
         """Initialize background particles"""
         particles = []
@@ -392,11 +396,23 @@ class QuantumSonarVisualizer:
         normalized = audio_data.astype(np.float32) / 32768.0
         
         # Calculate volume
-        volume = np.mean(np.abs(normalized))
+        raw_volume = np.mean(np.abs(normalized))
+        
+        self.running_average = self.running_average * 0.95 + raw_volume * 0.05
+        
+        if self.running_average > 0.01:
+            target_gain = self.target_level / self.running_average
+            self.gain = self.gain * 0.9 + target_gain * 0.1
+            self.gain = max(0.5, min(4.0, self.gain))
+        
+        normalized_with_gain = normalized * self.gain
+        normalized_with_gain = np.clip(normalized_with_gain, -1.0, 1.0)
+        
+        volume = np.mean(np.abs(normalized_with_gain))
         self.audio_level = volume
         
         # FFT for frequencies
-        fft = np.fft.rfft(normalized)
+        fft = np.fft.rfft(normalized_with_gain)
         frequencies = np.abs(fft) / len(fft)
         frequencies = frequencies[:len(frequencies)//2]  # Use lower half
         
@@ -404,11 +420,12 @@ class QuantumSonarVisualizer:
         if np.max(frequencies) > 0:
             frequencies = frequencies / np.max(frequencies)
         
-        # Beat detection
-        amplitude = np.max(np.abs(audio_data))
+        # Beat detection with dynamic threshold
+        amplitude = np.max(np.abs(normalized_with_gain)) * 32768.0
+        dynamic_threshold = max(3000, self.target_level * 20000)
         current_time = time.time()
         
-        if amplitude > self.beat_threshold and current_time - self.last_beat_time > 0.25:
+        if amplitude > dynamic_threshold and current_time - self.last_beat_time > 0.25:
             self.last_beat_time = current_time
             
             # Process through quantum circuit if enabled
