@@ -98,6 +98,7 @@ export function useAudioAnalyzer() {
       rain: 0,
       wind: 0,
       thunder: 0,
+      storm: 0,
       unknown: 0
     };
     

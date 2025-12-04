@@ -4,8 +4,51 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Weather Condition Detection
-export const weatherConditionSchema = z.enum(["clear", "rain", "wind", "thunder", "unknown"]);
+export const weatherConditionSchema = z.enum(["clear", "rain", "wind", "thunder", "storm", "unknown"]);
 export type WeatherCondition = z.infer<typeof weatherConditionSchema>;
+
+// Weather Mode for data source selection
+export const weatherModeSchema = z.enum(["acoustic", "satellite", "fused"]);
+export type WeatherMode = z.infer<typeof weatherModeSchema>;
+
+// Satellite Weather Data (from NASA GIBS / NOAA)
+export const satelliteWeatherSchema = z.object({
+  condition: weatherConditionSchema,
+  cloudCover: z.number().min(0).max(100),
+  stormProbability: z.number().min(0).max(1),
+  temperature: z.number().optional(),
+  source: z.enum(["nasa_gibs", "noaa", "fallback"]),
+  timestamp: z.number(),
+  location: z.object({
+    lat: z.number(),
+    lon: z.number(),
+  }).optional(),
+});
+
+export type SatelliteWeather = z.infer<typeof satelliteWeatherSchema>;
+
+// Quantum Storm Detection Result (Bell State: 1/√2 |00⟩ + |11⟩)
+export const stormQuantumSchema = z.object({
+  stormConfidence: z.number().min(0).max(1),
+  entanglementEntropy: z.number(),
+  bellStateAmplitude: z.number(),
+  concurrence: z.number().min(0).max(1),
+  isStormDetected: z.boolean(),
+});
+
+export type StormQuantum = z.infer<typeof stormQuantumSchema>;
+
+// Fused Weather Result (combining all sources)
+export const fusedWeatherSchema = z.object({
+  condition: weatherConditionSchema,
+  confidence: z.number().min(0).max(1),
+  acousticCondition: weatherConditionSchema.optional(),
+  satelliteCondition: weatherConditionSchema.optional(),
+  stormQuantum: stormQuantumSchema.optional(),
+  source: weatherModeSchema,
+});
+
+export type FusedWeather = z.infer<typeof fusedWeatherSchema>;
 
 // Audio Analysis Data
 export const audioAnalysisSchema = z.object({
@@ -70,6 +113,7 @@ export const settingsSchema = z.object({
   gridOpacity: z.number().min(0).max(100).default(20),
   pulseColorIntensity: z.number().min(0).max(100).default(80),
   noiseMode: z.boolean().default(false),
+  weatherMode: weatherModeSchema.default("acoustic"),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
