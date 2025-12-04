@@ -1,15 +1,33 @@
 import { spawn } from 'child_process';
 import path from 'path';
 
-export interface DetectedObject {
-  id: string;
+export interface ObjectPosition {
   azimuth: number;
   elevation: number;
   distance: number;
-  strength: number;
-  type: string;
+  distanceAccuracy: number;
+  x?: number;
+  y?: number;
+  z?: number;
+}
+
+export interface TofData {
+  emitTime: number;
+  receiveTime: number;
+  roundTripMs: number;
+  distanceMeters: number;
+  correlationStrength: number;
+  temperature?: number;
+}
+
+export interface DetectedObject {
+  id: string;
+  position: ObjectPosition;
+  signalStrength: number;
+  objectType: string;
   classification: string;
   confidence: number;
+  tofData?: TofData;
 }
 
 export interface DetectionResult {
@@ -24,7 +42,8 @@ export interface DetectionResult {
 
 export async function detectObjects(
   frequencies: number[],
-  volume: number
+  volume: number,
+  tofData?: TofData
 ): Promise<DetectionResult> {
   return new Promise((resolve) => {
     const scriptPath = path.join(process.cwd(), 'server', 'quantum-acoustic-detector.py');
@@ -45,7 +64,7 @@ export async function detectObjects(
     python.on('close', (code) => {
       if (code !== 0 || stderr) {
         console.error('Quantum detector error:', stderr);
-        resolve(fallbackDetection(frequencies, volume));
+        resolve(fallbackDetection(frequencies, volume, tofData));
         return;
       }
       
@@ -54,29 +73,33 @@ export async function detectObjects(
         resolve(result);
       } catch (e) {
         console.error('Failed to parse quantum detector output:', e);
-        resolve(fallbackDetection(frequencies, volume));
+        resolve(fallbackDetection(frequencies, volume, tofData));
       }
     });
     
     python.on('error', (err) => {
       console.error('Failed to spawn quantum detector:', err);
-      resolve(fallbackDetection(frequencies, volume));
+      resolve(fallbackDetection(frequencies, volume, tofData));
     });
     
-    // Send input data
-    const input = JSON.stringify({ frequencies, volume });
+    // Send input data including ToF
+    const input = JSON.stringify({ frequencies, volume, tofData });
     python.stdin.write(input);
     python.stdin.end();
     
     // Timeout after 5 seconds
     setTimeout(() => {
       python.kill();
-      resolve(fallbackDetection(frequencies, volume));
+      resolve(fallbackDetection(frequencies, volume, tofData));
     }, 5000);
   });
 }
 
-function fallbackDetection(frequencies: number[], volume: number): DetectionResult {
+function fallbackDetection(
+  frequencies: number[], 
+  volume: number,
+  tofData?: TofData
+): DetectionResult {
   const detections: DetectedObject[] = [];
   
   if (frequencies.length < 8 || volume < 10) {
@@ -87,6 +110,10 @@ function fallbackDetection(frequencies: number[], volume: number): DetectionResu
       entanglement_quality: 0
     };
   }
+  
+  // Get ToF distance if available
+  const tofDistance = tofData?.distanceMeters;
+  const tofAccuracy = tofData ? 0.3 : 2.0;
   
   // Simple peak detection
   const bandSize = Math.floor(frequencies.length / 4);
@@ -109,17 +136,45 @@ function fallbackDetection(frequencies: number[], volume: number): DetectionResu
       const peakIndex = band.indexOf(peak);
       const strength = Math.min(peak / 255, 1.0);
       const azimuth = (i / 4) * 360 + (peakIndex / band.length) * 90;
-      const distance = 5 + (i * 12) + (1 - strength) * 8;
+      
+      // Use ToF for first detection, estimate for others
+      let distance: number;
+      let distanceAccuracy: number;
+      
+      if (tofDistance !== undefined && i === 0) {
+        distance = tofDistance;
+        distanceAccuracy = tofAccuracy;
+      } else {
+        distance = 2 + (i * 8) + (1 - strength) * 5;
+        distanceAccuracy = distance * 0.25;
+      }
+      
+      const elevation = (strength - 0.5) * 20;
+      
+      // Calculate Cartesian coordinates
+      const azimuthRad = (azimuth * Math.PI) / 180;
+      const elevationRad = (elevation * Math.PI) / 180;
+      
+      const x = distance * Math.cos(elevationRad) * Math.sin(azimuthRad);
+      const y = distance * Math.cos(elevationRad) * Math.cos(azimuthRad);
+      const z = distance * Math.sin(elevationRad);
       
       detections.push({
         id: `obj_${i}_${Math.round(azimuth)}`,
-        azimuth: Math.round(azimuth * 10) / 10 % 360,
-        elevation: Math.round((strength - 0.5) * 20 * 10) / 10,
-        distance: Math.round(distance * 10) / 10,
-        strength: Math.round(strength * 1000) / 1000,
-        type: strength > 0.6 ? 'solid' : 'soft',
+        position: {
+          azimuth: Math.round(azimuth * 10) / 10 % 360,
+          elevation: Math.round(elevation * 10) / 10,
+          distance: Math.round(distance * 100) / 100,
+          distanceAccuracy: Math.round(distanceAccuracy * 100) / 100,
+          x: Math.round(x * 100) / 100,
+          y: Math.round(y * 100) / 100,
+          z: Math.round(z * 100) / 100,
+        },
+        signalStrength: Math.round(strength * 1000) / 1000,
+        objectType: strength > 0.6 ? 'solid' : 'soft',
         classification: classifications[i],
-        confidence: Math.round(strength * 0.75 * 100) / 100
+        confidence: Math.round(strength * 0.75 * 100) / 100,
+        tofData: i === 0 ? tofData : undefined,
       });
     }
   });

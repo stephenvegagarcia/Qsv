@@ -3,15 +3,15 @@
 Quantum Acoustic Object Detector using Bell State Entanglement
 Uses |φ⁺⟩ = 1/√2 (|00⟩ + |11⟩) for detecting acoustic signatures
 
-This detector analyzes audio frequency patterns to identify objects
-by their acoustic signatures using quantum entanglement correlations.
+This detector analyzes audio frequency patterns and Time-of-Flight data
+to precisely locate objects using quantum entanglement correlations.
 """
 
 import sys
 import json
 import math
 import numpy as np
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 
 try:
     from qiskit import QuantumCircuit
@@ -45,10 +45,12 @@ def create_bell_state_detector(num_frequency_pairs: int = 4) -> QuantumCircuit:
     return qc
 
 
-def encode_frequencies_to_phases(qc: QuantumCircuit, frequencies: List[float], volume: float) -> QuantumCircuit:
+def encode_frequencies_to_phases(qc: QuantumCircuit, frequencies: List[float], volume: float,
+                                  tof_distance: Optional[float] = None) -> QuantumCircuit:
     """
-    Encode audio frequency data into quantum phase rotations.
+    Encode audio frequency data and ToF distance into quantum phase rotations.
     Higher frequency components rotate the phase more.
+    ToF distance provides precise phase information for localization.
     """
     num_pairs = len(frequencies) // 2
     
@@ -70,13 +72,22 @@ def encode_frequencies_to_phases(qc: QuantumCircuit, frequencies: List[float], v
     for i in range(qc.num_qubits):
         qc.ry(volume_phase, i)
     
+    # Encode ToF distance for precise localization
+    if tof_distance is not None and tof_distance > 0:
+        # Distance phase encoding: closer objects = stronger rotation
+        # Normalize to max 50m range
+        distance_phase = (1 - min(tof_distance, 50) / 50) * math.pi
+        # Apply to first pair for distance encoding
+        qc.rz(distance_phase, 0)
+        qc.rz(-distance_phase, 1)  # Anti-correlation for precision
+    
     return qc
 
 
 def apply_interference_detection(qc: QuantumCircuit) -> QuantumCircuit:
     """
     Apply quantum interference to detect correlations between frequency pairs.
-    This helps identify distinct acoustic sources.
+    This helps identify distinct acoustic sources and their precise locations.
     """
     num_pairs = qc.num_qubits // 2
     
@@ -94,14 +105,17 @@ def apply_interference_detection(qc: QuantumCircuit) -> QuantumCircuit:
     return qc
 
 
-def analyze_measurements(counts: Dict[str, int], shots: int) -> Dict[str, Any]:
+def analyze_measurements(counts: Dict[str, int], shots: int, 
+                         tof_data: Optional[Dict] = None) -> Dict[str, Any]:
     """
-    Analyze quantum measurement results to extract object detection information.
+    Analyze quantum measurement results to extract precise object detection.
     
     Bell state correlations indicate:
     - |00⟩ or |11⟩ dominant: Strong reflection (solid object)
     - |01⟩ or |10⟩ dominant: Weak reflection (soft/distant object)
     - Mixed states: Multiple objects or complex environment
+    
+    ToF data provides precise distance when available.
     """
     results = {
         'detections': [],
@@ -139,6 +153,14 @@ def analyze_measurements(counts: Dict[str, int], shots: int) -> Dict[str, Any]:
                 'strength': abs(correlation - 0.5) * 2  # 0 = no signal, 1 = strong signal
             })
     
+    # Extract precise distance from ToF if available
+    tof_distance = None
+    tof_accuracy = 0.5  # Default accuracy margin in meters
+    if tof_data and 'distanceMeters' in tof_data:
+        tof_distance = tof_data['distanceMeters']
+        # Accuracy based on correlation strength
+        tof_accuracy = 0.1 + (1 - tof_data.get('correlationStrength', 0.5)) * 0.4
+    
     # Detect objects based on correlation patterns
     objects_detected = []
     
@@ -159,23 +181,48 @@ def analyze_measurements(counts: Dict[str, int], shots: int) -> Dict[str, Any]:
                 azimuth = (base_azimuth + 45) % 360
                 obj_type = 'soft' if pc['anti_correlation'] > 0.7 else 'diffuse'
             
-            # Distance estimation based on frequency band
-            # Low frequencies (pair 0-1) = close, High frequencies (pair 2-3) = far
-            base_distance = 5 + (i * 15)  # 5m to 50m range
-            distance = base_distance * (1 + (1 - pc['strength']) * 0.5)
+            # Use ToF distance if available, otherwise estimate from frequency band
+            if tof_distance is not None and i == 0:
+                # Primary detection uses ToF
+                distance = tof_distance
+                distance_accuracy = tof_accuracy
+            else:
+                # Secondary detections use frequency-based estimation
+                base_distance = 2 + (i * 8)  # 2m to 26m range
+                distance = base_distance * (1 + (1 - pc['strength']) * 0.3)
+                # Lower accuracy for frequency-based estimation
+                distance_accuracy = distance * 0.2
+            
+            # Elevation from correlation balance
+            elevation = (pc['correlation'] - 0.5) * 30  # -15 to +15 degrees
+            
+            # Calculate Cartesian coordinates
+            azimuth_rad = math.radians(azimuth)
+            elevation_rad = math.radians(elevation)
+            
+            x = distance * math.cos(elevation_rad) * math.sin(azimuth_rad)
+            y = distance * math.cos(elevation_rad) * math.cos(azimuth_rad)
+            z = distance * math.sin(elevation_rad)
             
             # Classify object based on acoustic signature
             classification = classify_acoustic_signature(pc, i)
             
             objects_detected.append({
                 'id': f'obj_{i}_{int(azimuth)}',
-                'azimuth': round(azimuth, 1),
-                'elevation': round((pc['correlation'] - 0.5) * 30, 1),  # -15 to +15 degrees
-                'distance': round(distance, 1),
-                'strength': round(pc['strength'], 3),
-                'type': obj_type,
+                'position': {
+                    'azimuth': round(azimuth, 1),
+                    'elevation': round(elevation, 1),
+                    'distance': round(distance, 2),
+                    'distanceAccuracy': round(distance_accuracy, 2),
+                    'x': round(x, 2),
+                    'y': round(y, 2),
+                    'z': round(z, 2)
+                },
+                'signalStrength': round(pc['strength'], 3),
+                'objectType': obj_type,
                 'classification': classification,
-                'confidence': round(pc['strength'] * 0.9, 2)
+                'confidence': round(pc['strength'] * 0.9, 2),
+                'tofData': tof_data if i == 0 and tof_data else None
             })
     
     # Calculate overall entanglement quality
@@ -233,26 +280,31 @@ def classify_acoustic_signature(correlation: Dict, freq_band: int) -> str:
         return band_classes['medium']
 
 
-def detect_objects(frequencies: List[float], volume: float) -> Dict[str, Any]:
+def detect_objects(frequencies: List[float], volume: float, 
+                   tof_data: Optional[Dict] = None) -> Dict[str, Any]:
     """
-    Main detection function using Bell state quantum processing.
+    Main detection function using Bell state quantum processing with ToF.
     
     Args:
         frequencies: List of frequency magnitudes from FFT (0-255 range)
         volume: Current audio volume level (0-255)
+        tof_data: Optional Time-of-Flight measurement for precise distance
     
     Returns:
-        Detection results with objects, positions, and classifications
+        Detection results with precise positions and classifications
     """
     if not QISKIT_AVAILABLE:
-        return fallback_detection(frequencies, volume)
+        return fallback_detection(frequencies, volume, tof_data)
     
     try:
         # Create Bell state detector circuit
         qc = create_bell_state_detector(num_frequency_pairs=4)
         
-        # Encode audio data
-        qc = encode_frequencies_to_phases(qc, frequencies, volume)
+        # Extract ToF distance if available
+        tof_distance = tof_data.get('distanceMeters') if tof_data else None
+        
+        # Encode audio data with ToF
+        qc = encode_frequencies_to_phases(qc, frequencies, volume, tof_distance)
         
         # Apply interference detection
         qc = apply_interference_detection(qc)
@@ -264,8 +316,8 @@ def detect_objects(frequencies: List[float], volume: float) -> Dict[str, Any]:
         result = job.result()
         counts = result.get_counts()
         
-        # Analyze measurements
-        detection_results = analyze_measurements(counts, shots)
+        # Analyze measurements with ToF data
+        detection_results = analyze_measurements(counts, shots, tof_data)
         detection_results['quantum_processed'] = True
         detection_results['circuit_depth'] = qc.depth()
         detection_results['bell_state'] = '|φ⁺⟩ = 1/√2 (|00⟩ + |11⟩)'
@@ -281,7 +333,8 @@ def detect_objects(frequencies: List[float], volume: float) -> Dict[str, Any]:
         }
 
 
-def fallback_detection(frequencies: List[float], volume: float) -> Dict[str, Any]:
+def fallback_detection(frequencies: List[float], volume: float,
+                       tof_data: Optional[Dict] = None) -> Dict[str, Any]:
     """
     Classical fallback when Qiskit is not available.
     Uses FFT analysis to detect frequency peaks as objects.
@@ -295,6 +348,10 @@ def fallback_detection(frequencies: List[float], volume: float) -> Dict[str, Any
             'quantum_processed': False,
             'entanglement_quality': 0
         }
+    
+    # Get ToF distance if available
+    tof_distance = tof_data.get('distanceMeters') if tof_data else None
+    tof_accuracy = 0.3 if tof_data else 2.0
     
     # Analyze frequency bands for peaks
     bands = [
@@ -314,17 +371,40 @@ def fallback_detection(frequencies: List[float], volume: float) -> Dict[str, Any
         if peak > 30 and peak > avg * 1.5:
             strength = min(peak / 255, 1.0)
             azimuth = (i / 4) * 360 + (band.index(peak) / len(band)) * 90
-            distance = 5 + (i * 15) + (1 - strength) * 10
+            
+            # Use ToF for first detection, estimate for others
+            if tof_distance is not None and i == 0:
+                distance = tof_distance
+                distance_accuracy = tof_accuracy
+            else:
+                distance = 2 + (i * 8) + (1 - strength) * 5
+                distance_accuracy = distance * 0.25
+            
+            elevation = (strength - 0.5) * 20
+            
+            # Calculate coordinates
+            azimuth_rad = math.radians(azimuth)
+            elevation_rad = math.radians(elevation)
+            
+            x = distance * math.cos(elevation_rad) * math.sin(azimuth_rad)
+            y = distance * math.cos(elevation_rad) * math.cos(azimuth_rad)
+            z = distance * math.sin(elevation_rad)
             
             classifications = ['Wall/Structure', 'Surface', 'Object', 'Small Item']
             
             detections.append({
                 'id': f'obj_{i}_{int(azimuth)}',
-                'azimuth': round(azimuth % 360, 1),
-                'elevation': round((strength - 0.5) * 20, 1),
-                'distance': round(distance, 1),
-                'strength': round(strength, 3),
-                'type': 'detected',
+                'position': {
+                    'azimuth': round(azimuth % 360, 1),
+                    'elevation': round(elevation, 1),
+                    'distance': round(distance, 2),
+                    'distanceAccuracy': round(distance_accuracy, 2),
+                    'x': round(x, 2),
+                    'y': round(y, 2),
+                    'z': round(z, 2)
+                },
+                'signalStrength': round(strength, 3),
+                'objectType': 'detected',
                 'classification': classifications[i],
                 'confidence': round(strength * 0.7, 2)
             })
@@ -343,9 +423,10 @@ if __name__ == '__main__':
     
     frequencies = input_data.get('frequencies', [])
     volume = input_data.get('volume', 0)
+    tof_data = input_data.get('tofData', None)
     
     # Run detection
-    result = detect_objects(frequencies, volume)
+    result = detect_objects(frequencies, volume, tof_data)
     
     # Output JSON result
     print(json.dumps(result))

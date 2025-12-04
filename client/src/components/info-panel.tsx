@@ -1,4 +1,4 @@
-import { X, Activity, Radio, Cpu, BarChart3, Atom, Target } from 'lucide-react';
+import { X, Activity, Radio, Cpu, BarChart3, Atom, Target, Crosshair } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -20,10 +20,14 @@ export function InfoPanel({ onClose }: InfoPanelProps) {
         
         <div className="p-4 overflow-y-auto max-h-[calc(80vh-80px)]">
           <Tabs defaultValue="detection" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-4">
+            <TabsList className="grid w-full grid-cols-4 mb-4">
               <TabsTrigger value="detection" data-testid="tab-detection">
                 <Target className="w-4 h-4 mr-2" />
                 Detection
+              </TabsTrigger>
+              <TabsTrigger value="precision" data-testid="tab-precision">
+                <Crosshair className="w-4 h-4 mr-2" />
+                Precision
               </TabsTrigger>
               <TabsTrigger value="quantum" data-testid="tab-quantum">
                 <Atom className="w-4 h-4 mr-2" />
@@ -31,7 +35,7 @@ export function InfoPanel({ onClose }: InfoPanelProps) {
               </TabsTrigger>
               <TabsTrigger value="fft" data-testid="tab-fft">
                 <BarChart3 className="w-4 h-4 mr-2" />
-                FFT Analysis
+                FFT
               </TabsTrigger>
             </TabsList>
 
@@ -85,6 +89,73 @@ export function InfoPanel({ onClose }: InfoPanelProps) {
                   <li><strong>Distance</strong> - Estimated in meters based on signal strength</li>
                   <li><strong>Classification</strong> - Object type based on acoustic signature</li>
                   <li><strong>Confidence</strong> - Detection reliability percentage</li>
+                </ul>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="precision" className="space-y-4" data-testid="content-precision">
+              <div className="flex items-start gap-3">
+                <Crosshair className="w-6 h-6 text-chart-3 mt-1 flex-shrink-0" />
+                <div>
+                  <h3 className="font-semibold text-lg mb-2" data-testid="text-precision-title">Precise Localization</h3>
+                  <p className="text-muted-foreground mb-3" data-testid="text-precision-description">
+                    Active sonar uses Time-of-Flight (ToF) measurements to determine exact distances without GPS.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-chart-3/20 rounded-lg p-6 text-center" data-testid="section-tof-formula">
+                <h4 className="font-medium mb-3">Distance Calculation:</h4>
+                <div className="font-mono text-xl mb-2" data-testid="text-tof-formula">
+                  d = (v × t) / 2
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  distance = (speed of sound × round-trip time) / 2
+                </p>
+              </div>
+
+              <div className="bg-accent/20 rounded-lg p-4 space-y-3" data-testid="section-tof-process">
+                <h4 className="font-medium">How Time-of-Flight Works:</h4>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                  <li><strong>Emit chirp</strong> - Speaker sends a 2-8 kHz frequency sweep</li>
+                  <li><strong>Listen for echo</strong> - Microphone captures reflected sound</li>
+                  <li><strong>Cross-correlation</strong> - Match echo pattern to original chirp</li>
+                  <li><strong>Calculate time</strong> - Measure delay between emit and receive</li>
+                  <li><strong>Compute distance</strong> - Apply speed of sound formula</li>
+                </ol>
+              </div>
+
+              <div className="bg-primary/10 rounded-lg p-4" data-testid="section-speed-of-sound">
+                <h4 className="font-medium mb-2">Speed of Sound:</h4>
+                <div className="font-mono text-sm mb-2">
+                  v = 331.3 + (0.606 × T)
+                </div>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Where T is temperature in Celsius. At 20°C, speed is ~343 m/s.
+                </p>
+                <ul className="text-sm space-y-1 text-muted-foreground">
+                  <li><strong>0°C</strong> → 331.3 m/s</li>
+                  <li><strong>20°C</strong> → 343.4 m/s (room temperature)</li>
+                  <li><strong>35°C</strong> → 352.5 m/s (warm day)</li>
+                </ul>
+              </div>
+
+              <div className="bg-chart-2/10 rounded-lg p-4">
+                <h4 className="font-medium mb-2">Accuracy Factors:</h4>
+                <ul className="text-sm space-y-1 text-muted-foreground">
+                  <li><strong>ToF Active</strong> - ±0.1-0.3m accuracy with strong echo</li>
+                  <li><strong>Standard</strong> - ±1-3m accuracy from signal strength only</li>
+                  <li><strong>Calibration</strong> - Compensates for device audio latency</li>
+                  <li><strong>Temperature</strong> - Affects speed of sound calculation</li>
+                </ul>
+              </div>
+
+              <div className="bg-background/50 rounded-lg p-4">
+                <h4 className="font-medium mb-2">Keyboard Shortcuts:</h4>
+                <ul className="text-sm space-y-1 text-muted-foreground">
+                  <li><kbd className="px-1.5 py-0.5 text-xs font-mono bg-muted rounded">P</kbd> - Manual ping</li>
+                  <li><kbd className="px-1.5 py-0.5 text-xs font-mono bg-muted rounded">C</kbd> - Controls panel</li>
+                  <li><kbd className="px-1.5 py-0.5 text-xs font-mono bg-muted rounded">H</kbd> - Help panel</li>
                 </ul>
               </div>
             </TabsContent>

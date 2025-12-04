@@ -16,7 +16,8 @@ export function ControlPanel({ settings, onSettingsChange }: ControlPanelProps) 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     pulse: true,
     quantum: true,
-    visual: true
+    precision: true,
+    visual: false,
   });
 
   const toggleSection = (section: string) => {
@@ -25,7 +26,7 @@ export function ControlPanel({ settings, onSettingsChange }: ControlPanelProps) 
 
   return (
     <div className="fixed bottom-8 right-8 w-80 pointer-events-auto z-10">
-      <Card className="backdrop-blur-md bg-card/90 border-card-border p-6">
+      <Card className="backdrop-blur-md bg-card/90 border-card-border p-6 max-h-[80vh] overflow-y-auto">
         <div className="flex items-center gap-2 mb-4">
           <SettingsIcon className="w-5 h-5 text-primary" />
           <h2 className="text-lg font-semibold">Controls</h2>
@@ -88,6 +89,93 @@ export function ControlPanel({ settings, onSettingsChange }: ControlPanelProps) 
             )}
           </div>
 
+          {/* Precision Localization */}
+          <div className="border-b border-border pb-4">
+            <button
+              onClick={() => toggleSection('precision')}
+              data-testid="button-toggle-precision-settings"
+              className="flex items-center justify-between w-full text-sm font-medium mb-3 hover-elevate active-elevate-2 rounded-md p-2 -m-2"
+            >
+              <span>Precision Localization</span>
+              {expanded.precision ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+            
+            {expanded.precision && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="active-sonar" className="text-xs text-muted-foreground">
+                    Active Sonar (emit pings)
+                  </Label>
+                  <Switch
+                    id="active-sonar"
+                    data-testid="switch-active-sonar"
+                    checked={settings.activeSonar}
+                    onCheckedChange={(checked) => onSettingsChange({ activeSonar: checked })}
+                  />
+                </div>
+
+                <div className="text-[10px] text-muted-foreground bg-accent/30 p-2 rounded-md">
+                  Active sonar sends chirp pulses and measures echo return time for precise distance
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label htmlFor="detection-range" className="text-xs text-muted-foreground">
+                      Max Detection Range
+                    </Label>
+                    <span className="text-xs font-mono text-foreground">
+                      {settings.detectionRange}m
+                    </span>
+                  </div>
+                  <Slider
+                    id="detection-range"
+                    data-testid="slider-detection-range"
+                    value={[settings.detectionRange]}
+                    onValueChange={([value]) => onSettingsChange({ detectionRange: value })}
+                    min={1}
+                    max={50}
+                    step={1}
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label htmlFor="temperature" className="text-xs text-muted-foreground">
+                      Air Temperature (for speed of sound)
+                    </Label>
+                    <span className="text-xs font-mono text-foreground">
+                      {settings.temperatureCelsius}°C
+                    </span>
+                  </div>
+                  <Slider
+                    id="temperature"
+                    data-testid="slider-temperature"
+                    value={[settings.temperatureCelsius]}
+                    onValueChange={([value]) => onSettingsChange({ temperatureCelsius: value })}
+                    min={-10}
+                    max={45}
+                    step={1}
+                  />
+                  <div className="text-[10px] text-muted-foreground mt-1">
+                    Speed of sound: {(331.3 + 0.606 * settings.temperatureCelsius).toFixed(1)} m/s
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="auto-calibrate" className="text-xs text-muted-foreground">
+                    Auto-Calibrate Device
+                  </Label>
+                  <Switch
+                    id="auto-calibrate"
+                    data-testid="switch-auto-calibrate"
+                    checked={settings.autoCalibrate}
+                    onCheckedChange={(checked) => onSettingsChange({ autoCalibrate: checked })}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Quantum Parameters */}
           <div className="border-b border-border pb-4">
             <button
@@ -122,27 +210,6 @@ export function ControlPanel({ settings, onSettingsChange }: ControlPanelProps) 
 
                 <div className="text-[10px] text-muted-foreground bg-accent/30 p-2 rounded-md font-mono">
                   |φ⁺⟩ = 1/√2 (|00⟩ + |11⟩)
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <Label htmlFor="enhancement" className="text-xs text-muted-foreground">
-                      Detection Range
-                    </Label>
-                    <span className="text-xs font-mono text-foreground">
-                      {settings.enhancementLevel}%
-                    </span>
-                  </div>
-                  <Slider
-                    id="enhancement"
-                    data-testid="slider-enhancement"
-                    value={[settings.enhancementLevel]}
-                    onValueChange={([value]) => onSettingsChange({ enhancementLevel: value })}
-                    min={0}
-                    max={100}
-                    step={1}
-                    disabled={settings.quantumMode === 'off'}
-                  />
                 </div>
 
                 <div className="flex items-center justify-between">

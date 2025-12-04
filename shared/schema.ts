@@ -3,81 +3,68 @@ import { pgTable, text, varchar, real, timestamp, jsonb } from "drizzle-orm/pg-c
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Weather Condition Detection
-export const weatherConditionSchema = z.enum(["clear", "rain", "wind", "thunder", "storm", "unknown"]);
-export type WeatherCondition = z.infer<typeof weatherConditionSchema>;
+// Time-of-Flight measurement for precise distance
+export const tofMeasurementSchema = z.object({
+  emitTime: z.number(),           // When chirp was emitted
+  receiveTime: z.number(),        // When echo was received
+  roundTripMs: z.number(),        // Round trip time in milliseconds
+  distanceMeters: z.number(),     // Calculated distance (speed of sound * time / 2)
+  correlationStrength: z.number().min(0).max(1), // How confident the echo detection is
+  temperature: z.number().optional(), // Air temperature for speed of sound adjustment
+});
 
-// Weather Mode for data source selection
-export const weatherModeSchema = z.enum(["acoustic", "satellite", "fused"]);
-export type WeatherMode = z.infer<typeof weatherModeSchema>;
+export type TofMeasurement = z.infer<typeof tofMeasurementSchema>;
 
-// Satellite Weather Data (from NASA GIBS / NOAA)
-export const satelliteWeatherSchema = z.object({
-  condition: weatherConditionSchema,
-  cloudCover: z.number().min(0).max(100),
-  stormProbability: z.number().min(0).max(1),
-  temperature: z.number().optional(),
-  source: z.enum(["nasa_gibs", "noaa", "fallback"]),
+// Chirp pulse configuration
+export const chirpConfigSchema = z.object({
+  startFreq: z.number().default(2000),    // Start frequency in Hz
+  endFreq: z.number().default(8000),      // End frequency in Hz
+  duration: z.number().default(50),        // Pulse duration in ms
+  type: z.enum(["linear", "logarithmic"]).default("logarithmic"),
+});
+
+export type ChirpConfig = z.infer<typeof chirpConfigSchema>;
+
+// Precise object position
+export const objectPositionSchema = z.object({
+  azimuth: z.number(),            // Horizontal angle 0-360 degrees
+  elevation: z.number(),          // Vertical angle -90 to 90 degrees
+  distance: z.number(),           // Distance in meters
+  distanceAccuracy: z.number(),   // Accuracy margin in meters (+/-)
+  x: z.number().optional(),       // Cartesian X coordinate
+  y: z.number().optional(),       // Cartesian Y coordinate
+  z: z.number().optional(),       // Cartesian Z coordinate (height)
+});
+
+export type ObjectPosition = z.infer<typeof objectPositionSchema>;
+
+// Detection Event with precise localization
+export const detectionSchema = z.object({
+  id: z.string(),
+  position: objectPositionSchema,
+  signalStrength: z.number().min(0).max(1),
   timestamp: z.number(),
-  location: z.object({
-    lat: z.number(),
-    lon: z.number(),
-  }).optional(),
-});
-
-export type SatelliteWeather = z.infer<typeof satelliteWeatherSchema>;
-
-// Quantum Storm Detection Result (Bell State: 1/√2 |00⟩ + |11⟩)
-export const stormQuantumSchema = z.object({
-  stormConfidence: z.number().min(0).max(1),
-  entanglementEntropy: z.number(),
-  bellStateAmplitude: z.number(),
-  concurrence: z.number().min(0).max(1),
-  isStormDetected: z.boolean(),
-});
-
-export type StormQuantum = z.infer<typeof stormQuantumSchema>;
-
-// Storm Location with Direction
-export const stormLocationSchema = z.object({
-  name: z.string(), // Town/city name
-  distance: z.number(), // Distance in km
-  direction: z.number(), // Bearing in degrees (0-360)
-  cardinalDirection: z.string(), // N, NE, E, SE, S, SW, W, NW
-  severity: z.enum(["low", "moderate", "high", "severe"]),
-  condition: weatherConditionSchema,
-  stormProbability: z.number().min(0).max(1),
-});
-
-export type StormLocation = z.infer<typeof stormLocationSchema>;
-
-// Storm Tracking Data
-export const stormTrackingSchema = z.object({
-  userLocation: z.object({
-    lat: z.number(),
-    lon: z.number(),
-  }),
-  nearbyStorms: z.array(stormLocationSchema),
-  stormApproaching: z.boolean(),
-  approachingFrom: z.string().optional(), // Cardinal direction
-  estimatedArrival: z.string().optional(), // "30 minutes", "2 hours", etc.
-  timestamp: z.number(),
-});
-
-export type StormTracking = z.infer<typeof stormTrackingSchema>;
-
-// Fused Weather Result (combining all sources)
-export const fusedWeatherSchema = z.object({
-  condition: weatherConditionSchema,
+  classification: z.string().optional(),
+  objectType: z.enum(["solid", "soft", "medium", "diffuse"]).optional(),
   confidence: z.number().min(0).max(1),
-  acousticCondition: weatherConditionSchema.optional(),
-  satelliteCondition: weatherConditionSchema.optional(),
-  stormQuantum: stormQuantumSchema.optional(),
-  stormTracking: stormTrackingSchema.optional(),
-  source: weatherModeSchema,
+  tofData: tofMeasurementSchema.optional(), // Time-of-flight data if available
+  velocity: z.number().optional(),  // m/s, positive = approaching, negative = receding
 });
 
-export type FusedWeather = z.infer<typeof fusedWeatherSchema>;
+export type Detection = z.infer<typeof detectionSchema>;
+
+// Quantum detection result from Bell state processing
+export const quantumDetectionResultSchema = z.object({
+  detections: z.array(detectionSchema),
+  entanglementQuality: z.number().min(0).max(1),
+  totalObjects: z.number(),
+  quantumProcessed: z.boolean(),
+  circuitDepth: z.number().optional(),
+  bellState: z.string().optional(),
+  processingTimeMs: z.number().optional(),
+});
+
+export type QuantumDetectionResult = z.infer<typeof quantumDetectionResultSchema>;
 
 // Audio Analysis Data
 export const audioAnalysisSchema = z.object({
@@ -85,12 +72,11 @@ export const audioAnalysisSchema = z.object({
   frequencyData: z.array(z.number()),
   isBeat: z.boolean(),
   timestamp: z.number(),
-  weather: weatherConditionSchema.optional(),
 });
 
 export type AudioAnalysis = z.infer<typeof audioAnalysisSchema>;
 
-// Pulse Data (for sonar rings)
+// Pulse Data (for sonar rings visualization)
 export const pulseSchema = z.object({
   id: z.string(),
   position: z.object({
@@ -100,8 +86,9 @@ export const pulseSchema = z.object({
   }),
   startTime: z.number(),
   speed: z.number().default(15),
-  maxDistance: z.number().optional(), // how far the pulse detected something
+  maxDistance: z.number().optional(),
   intensity: z.number().min(0).max(1).default(1),
+  isChirp: z.boolean().default(false), // True if this is an active sonar pulse
 });
 
 export type Pulse = z.infer<typeof pulseSchema>;
@@ -110,28 +97,13 @@ export type Pulse = z.infer<typeof pulseSchema>;
 export const quantumResultSchema = z.object({
   enhancedFrequencies: z.array(z.number()),
   detectedDistance: z.number().nullable(),
-  quantumState: z.string(), // serialized quantum state
+  quantumState: z.string(),
   processingTime: z.number(),
   circuitDepth: z.number(),
   confidence: z.number().min(0).max(1),
 });
 
 export type QuantumResult = z.infer<typeof quantumResultSchema>;
-
-// Detection Event (when sonar detects an object)
-export const detectionSchema = z.object({
-  id: z.string(),
-  direction: z.object({
-    azimuth: z.number(), // 0-360 degrees
-    elevation: z.number(), // -90 to 90 degrees
-  }),
-  distance: z.number(),
-  signalStrength: z.number().min(0).max(1),
-  timestamp: z.number(),
-  classification: z.string().optional(), // QML classification result
-});
-
-export type Detection = z.infer<typeof detectionSchema>;
 
 // Settings Configuration
 export const settingsSchema = z.object({
@@ -142,10 +114,25 @@ export const settingsSchema = z.object({
   gridOpacity: z.number().min(0).max(100).default(20),
   pulseColorIntensity: z.number().min(0).max(100).default(80),
   noiseMode: z.boolean().default(false),
-  weatherMode: weatherModeSchema.default("acoustic"),
+  // Precise localization settings
+  activeSonar: z.boolean().default(true),       // Enable chirp pulse emission
+  detectionRange: z.number().min(1).max(50).default(10), // Max range in meters
+  temperatureCelsius: z.number().default(20),    // For speed of sound calculation
+  autoCalibrate: z.boolean().default(true),      // Auto-adjust for device latency
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
+
+// Calibration data for device-specific adjustments
+export const calibrationSchema = z.object({
+  deviceLatencyMs: z.number().default(0),      // Audio I/O latency
+  microphoneSensitivity: z.number().default(1), // Gain adjustment
+  speakerDelay: z.number().default(0),         // Speaker output delay
+  lastCalibrated: z.number().optional(),       // Timestamp
+  isCalibrated: z.boolean().default(false),
+});
+
+export type Calibration = z.infer<typeof calibrationSchema>;
 
 // Keep existing user schema for auth (if needed later)
 export const users = pgTable("users", {
