@@ -1,16 +1,31 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAudioAnalyzer } from '@/hooks/use-audio-analyzer';
-import { useWeatherFusion } from '@/hooks/use-weather-fusion';
 import { SonarCanvas2D } from '@/components/sonar-canvas-2d';
 import { HUDOverlay } from '@/components/hud-overlay';
 import { ControlPanel } from '@/components/control-panel';
 import { DetectionPanel } from '@/components/detection-panel';
 import { InfoPanel } from '@/components/info-panel';
-import { VoiceAssistant } from '@/components/voice-assistant';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { Waves, HelpCircle } from 'lucide-react';
 import type { AudioAnalysis, Pulse, Detection, Settings } from '@shared/schema';
+
+interface QuantumDetectionResult {
+  detections: Array<{
+    id: string;
+    azimuth: number;
+    elevation: number;
+    distance: number;
+    strength: number;
+    type: string;
+    classification: string;
+    confidence: number;
+  }>;
+  total_objects: number;
+  quantum_processed: boolean;
+  entanglement_quality: number;
+  bell_state?: string;
+}
 
 export default function SonarPage() {
   const audio = useAudioAnalyzer();
@@ -19,13 +34,14 @@ export default function SonarPage() {
   const [detections, setDetections] = useState<Detection[]>([]);
   const [quantumStatus, setQuantumStatus] = useState<'idle' | 'ready' | 'processing'>('idle');
   const [detectionRange, setDetectionRange] = useState(0);
+  const [entanglementQuality, setEntanglementQuality] = useState(0);
   const [showControls, setShowControls] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   
   const [settings, setSettings] = useState<Settings>({
-    fftSize: '256',
+    fftSize: '512',
     sensitivity: 50,
-    quantumMode: 'enhancement',
+    quantumMode: 'full',
     enhancementLevel: 50,
     gridOpacity: 20,
     pulseColorIntensity: 80,
@@ -33,19 +49,9 @@ export default function SonarPage() {
     weatherMode: 'acoustic',
   });
 
-  // Weather fusion hook for combining acoustic, satellite, and quantum data
-  // Includes auto-fallback to acoustic mode when geolocation is denied
-  const handleWeatherModeChange = useCallback((mode: 'acoustic' | 'satellite' | 'fused') => {
-    setSettings(prev => ({ ...prev, weatherMode: mode }));
-  }, []);
-
-  const { fusedWeather, geolocationDenied, location, stormQuantum } = useWeatherFusion({
-    weatherMode: settings.weatherMode,
-    acousticWeather: audioAnalysis?.weather,
-    frequencies: audioAnalysis?.frequencyData || [],
-    volume: audioAnalysis?.volume || 0,
-    onModeChange: handleWeatherModeChange
-  });
+  // Track last detection time to prevent flooding
+  const lastDetectionTimeRef = useRef(0);
+  const isDetectingRef = useRef(false);
 
   // Audio analysis loop
   useEffect(() => {
@@ -70,9 +76,6 @@ export default function SonarPage() {
     }
   }, [settings.fftSize, audio.ready]);
 
-  // Track last beat detection time to prevent duplicate triggers
-  const lastBeatTimeRef = useRef(0);
-
   // Update quantum status based on mode
   useEffect(() => {
     if (settings.quantumMode === 'off') {
@@ -82,39 +85,110 @@ export default function SonarPage() {
     }
   }, [settings.quantumMode]);
 
-  // Handle detections on beats
+  // Quantum object detection using Bell state |φ⁺⟩ = 1/√2 (|00⟩ + |11⟩)
+  const performQuantumDetection = useCallback(async (frequencies: number[], volume: number) => {
+    if (isDetectingRef.current) return;
+    
+    isDetectingRef.current = true;
+    setQuantumStatus('processing');
+    
+    try {
+      const response = await fetch('/api/detect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ frequencies, volume }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Detection failed');
+      }
+      
+      const result: QuantumDetectionResult = await response.json();
+      
+      // Update entanglement quality
+      setEntanglementQuality(result.entanglement_quality);
+      
+      // Convert quantum detections to Detection format
+      const now = Date.now();
+      const newDetections: Detection[] = result.detections.map((det, index) => ({
+        id: `${det.id}_${now}_${index}`,
+        direction: {
+          azimuth: det.azimuth,
+          elevation: det.elevation,
+        },
+        distance: det.distance,
+        signalStrength: det.strength,
+        timestamp: now,
+        classification: det.classification,
+      }));
+      
+      if (newDetections.length > 0) {
+        // Update detection range to max detected distance
+        const maxDistance = Math.max(...newDetections.map(d => d.distance));
+        setDetectionRange(prev => Math.max(prev, maxDistance));
+        
+        // Merge new detections, keeping most recent
+        setDetections(prev => {
+          const combined = [...newDetections, ...prev];
+          // Remove duplicates by similar azimuth (within 15 degrees)
+          const unique: Detection[] = [];
+          for (const det of combined) {
+            const isDuplicate = unique.some(u => 
+              Math.abs(u.direction.azimuth - det.direction.azimuth) < 15 &&
+              Math.abs(u.distance - det.distance) < 5
+            );
+            if (!isDuplicate) {
+              unique.push(det);
+            }
+          }
+          return unique.slice(0, 15);
+        });
+      }
+      
+      setQuantumStatus('ready');
+    } catch (error) {
+      console.error('Quantum detection error:', error);
+      setQuantumStatus('ready');
+    } finally {
+      isDetectingRef.current = false;
+    }
+  }, []);
+
+  // Trigger detection on audio beats or volume spikes
   useEffect(() => {
-    if (!audioAnalysis || settings.quantumMode === 'off' || !audioAnalysis.isBeat) {
+    if (!audioAnalysis || settings.quantumMode === 'off') {
       return;
     }
 
     const now = Date.now();
-    if (now - lastBeatTimeRef.current > 150) {
-      lastBeatTimeRef.current = now;
-      setQuantumStatus('processing');
-      
-      const distance = (audioAnalysis.volume / 100) * 50 + 10;
-      setDetectionRange(prev => Math.max(prev, distance));
-      
-      const detection: Detection = {
-        id: `det-${now}`,
-        direction: {
-          azimuth: Math.random() * 360,
-          elevation: (Math.random() - 0.5) * 60,
-        },
-        distance,
-        signalStrength: audioAnalysis.volume / 100,
-        timestamp: now,
-        classification: settings.quantumMode === 'full' 
-          ? ['Reflective Surface', 'Acoustic Boundary', 'Dense Object'][Math.floor(Math.random() * 3)]
-          : undefined,
-      };
-      
-      setDetections(prev => [detection, ...prev].slice(0, 10));
-      
-      setTimeout(() => setQuantumStatus('ready'), 100);
+    const minInterval = settings.quantumMode === 'full' ? 300 : 500;
+    
+    // Trigger on beat or high volume
+    const shouldDetect = (audioAnalysis.isBeat || audioAnalysis.volume > 100) && 
+                         now - lastDetectionTimeRef.current > minInterval;
+    
+    if (shouldDetect) {
+      lastDetectionTimeRef.current = now;
+      performQuantumDetection(audioAnalysis.frequencyData, audioAnalysis.volume);
     }
-  }, [audioAnalysis, settings.quantumMode]);
+  }, [audioAnalysis, settings.quantumMode, performQuantumDetection]);
+
+  // Decay detection range over time
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDetectionRange(prev => Math.max(0, prev - 0.5));
+    }, 100);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Age out old detections
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setDetections(prev => prev.filter(d => now - d.timestamp < 10000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handlePulseCreate = useCallback((pulse: Pulse) => {
     setPulses(prev => [...prev, pulse].slice(-10));
@@ -164,7 +238,10 @@ export default function SonarPage() {
               Quantum Audio Sonar
             </h1>
             <p className="text-muted-foreground">
-              Map your environment through sound waves enhanced by quantum computing
+              Detect objects through sound using quantum Bell state entanglement
+            </p>
+            <p className="text-xs text-primary font-mono">
+              |φ⁺⟩ = 1/√2 (|00⟩ + |11⟩)
             </p>
           </div>
 
@@ -174,11 +251,11 @@ export default function SonarPage() {
             data-testid="button-start-sonar"
             className="px-12 py-6 text-lg"
           >
-            Initialize Sonar System
+            Initialize Quantum Sonar
           </Button>
 
           <p className="text-sm text-muted-foreground">
-            Microphone access required • Make noise to scan your surroundings
+            Microphone required • Detects objects by analyzing sound reflections
           </p>
         </div>
       </div>
@@ -200,19 +277,18 @@ export default function SonarPage() {
         />
       </div>
 
-      {/* HUD Overlay */}
+      {/* HUD Overlay - Now shows entanglement quality */}
       <HUDOverlay
         audioLevel={audioAnalysis?.volume || 0}
         pulseCount={pulses.length}
         quantumStatus={quantumStatus}
         detectionRange={detectionRange}
-        weather={audioAnalysis?.weather}
-        fusedWeather={fusedWeather}
-        weatherMode={settings.weatherMode}
+        entanglementQuality={entanglementQuality}
+        objectCount={detections.length}
       />
 
-      {/* Detection Panel - Conditionally shown */}
-      {showControls && <DetectionPanel detections={detections} />}
+      {/* Detection Panel - Shows detected objects */}
+      <DetectionPanel detections={detections} />
 
       {/* Control Panel - Conditionally shown */}
       {showControls && (
@@ -227,8 +303,9 @@ export default function SonarPage() {
         <div className="backdrop-blur-sm bg-card/70 border border-card-border rounded-md px-4 py-2">
           <div className="flex items-center gap-2">
             <p className="text-sm text-muted-foreground">
-              Microphone Active • {audioAnalysis?.isBeat ? 'Pulse Emitted' : 'Listening...'}
-              {settings.quantumMode !== 'off' && ' • Quantum Active'}
+              {quantumStatus === 'processing' ? 'Quantum Processing...' : 
+               audioAnalysis?.isBeat ? 'Object Detected!' : 'Listening...'}
+              {settings.quantumMode !== 'off' && ' • Bell State Active'}
             </p>
           </div>
         </div>
@@ -246,16 +323,6 @@ export default function SonarPage() {
           </div>
         </div>
       )}
-
-      {/* Voice Assistant */}
-      <VoiceAssistant
-        detections={detections}
-        audioAnalysis={audioAnalysis}
-        weather={fusedWeather}
-        detectionRange={detectionRange}
-        quantumStatus={quantumStatus}
-        userLocation={location?.available ? { lat: location.lat, lon: location.lon } : null}
-      />
 
       {/* Help Button */}
       <Button

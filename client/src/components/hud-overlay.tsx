@@ -1,15 +1,13 @@
-import { Activity, Cpu, Radio, Ruler, CloudRain, Wind, CloudLightning, Sun, HelpCircle, Zap, Satellite } from 'lucide-react';
+import { Activity, Cpu, Radio, Ruler, Target, Atom } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
-import type { WeatherCondition, FusedWeather, WeatherMode } from '@shared/schema';
 
 interface HUDOverlayProps {
   audioLevel: number;
   pulseCount: number;
   quantumStatus: 'idle' | 'ready' | 'processing';
   detectionRange: number;
-  weather?: WeatherCondition;
-  fusedWeather?: FusedWeather | null;
-  weatherMode?: WeatherMode;
+  entanglementQuality?: number;
+  objectCount?: number;
 }
 
 export function HUDOverlay({ 
@@ -17,9 +15,8 @@ export function HUDOverlay({
   pulseCount, 
   quantumStatus, 
   detectionRange,
-  weather = 'unknown',
-  fusedWeather,
-  weatherMode = 'acoustic'
+  entanglementQuality = 0,
+  objectCount = 0
 }: HUDOverlayProps) {
   const statusColors = {
     idle: 'text-muted-foreground',
@@ -32,50 +29,6 @@ export function HUDOverlay({
     ready: 'Ready',
     processing: 'Processing'
   };
-
-  const weatherIcons: Record<WeatherCondition, typeof Sun> = {
-    clear: Sun,
-    rain: CloudRain,
-    wind: Wind,
-    thunder: CloudLightning,
-    storm: Zap,
-    unknown: HelpCircle
-  };
-
-  const weatherColors: Record<WeatherCondition, string> = {
-    clear: 'text-yellow-500',
-    rain: 'text-blue-500',
-    wind: 'text-cyan-500',
-    thunder: 'text-purple-500',
-    storm: 'text-red-500',
-    unknown: 'text-muted-foreground'
-  };
-
-  const weatherLabels: Record<WeatherCondition, string> = {
-    clear: 'Clear',
-    rain: 'Rain',
-    wind: 'Wind',
-    thunder: 'Thunder',
-    storm: 'Storm',
-    unknown: 'Unknown'
-  };
-
-  const modeLabels: Record<WeatherMode, string> = {
-    acoustic: 'Acoustic',
-    satellite: 'Satellite',
-    fused: 'Fused'
-  };
-
-  // Determine which weather to display based on mode
-  // In acoustic mode: always use acoustic weather
-  // In satellite/fused mode: use fused weather, show loading if not yet available
-  const isFetchingWeather = weatherMode !== 'acoustic' && !fusedWeather;
-  const displayWeather: WeatherCondition = 
-    weatherMode === 'acoustic' 
-      ? weather 
-      : (fusedWeather?.condition || 'unknown');
-  const WeatherIcon = weatherIcons[displayWeather];
-  const stormConfidence = fusedWeather?.stormQuantum?.stormConfidence;
 
   return (
     <div className="fixed top-0 left-0 right-0 p-4 pointer-events-none z-10">
@@ -118,7 +71,7 @@ export function HUDOverlay({
             <Cpu className={`w-4 h-4 ${statusColors[quantumStatus]}`} />
             <div>
               <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Quantum Processing
+                Bell State |φ⁺⟩
               </div>
               <div className={`text-base font-medium ${statusColors[quantumStatus]}`}>
                 {statusLabels[quantumStatus]}
@@ -139,40 +92,37 @@ export function HUDOverlay({
             </div>
           </div>
 
-          {/* Weather Detection */}
+          {/* Objects Detected */}
           <div className="flex items-center gap-3">
-            <WeatherIcon className={`w-4 h-4 ${weatherColors[displayWeather]}`} data-testid="icon-weather" />
+            <Target className={`w-4 h-4 ${objectCount > 0 ? 'text-chart-1' : 'text-muted-foreground'}`} data-testid="icon-objects" />
             <div>
-              <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                {weatherMode !== 'acoustic' && <Satellite className="w-3 h-3" />}
-                {modeLabels[weatherMode]} Weather
+              <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                Objects Detected
               </div>
-              <div className={`text-base font-medium ${weatherColors[displayWeather]}`} data-testid="text-weather-condition">
-                {weatherLabels[displayWeather]}
+              <div className={`text-base font-mono ${objectCount > 0 ? 'text-chart-1' : 'text-foreground'}`} data-testid="text-object-count">
+                {objectCount}
               </div>
             </div>
           </div>
 
-          {/* Storm Detection (Bell State) */}
-          {stormConfidence !== undefined && (
-            <div className="flex items-center gap-3">
-              <Zap className={`w-4 h-4 ${stormConfidence > 0.5 ? 'text-red-500' : 'text-muted-foreground'}`} data-testid="icon-storm" />
-              <div>
-                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Storm Detection (|Φ⁺⟩)
-                </div>
-                <div className="flex items-center gap-2">
-                  <Progress 
-                    value={stormConfidence * 100} 
-                    className="h-2 w-16"
-                  />
-                  <span className={`text-sm font-mono ${stormConfidence > 0.5 ? 'text-red-500' : 'text-foreground'}`} data-testid="text-storm-confidence">
-                    {Math.round(stormConfidence * 100)}%
-                  </span>
-                </div>
+          {/* Entanglement Quality */}
+          <div className="flex items-center gap-3">
+            <Atom className={`w-4 h-4 ${entanglementQuality > 0.5 ? 'text-primary' : 'text-muted-foreground'}`} data-testid="icon-entanglement" />
+            <div>
+              <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                Entanglement
+              </div>
+              <div className="flex items-center gap-2">
+                <Progress 
+                  value={entanglementQuality * 100} 
+                  className="h-2 w-16"
+                />
+                <span className={`text-sm font-mono ${entanglementQuality > 0.5 ? 'text-primary' : 'text-foreground'}`} data-testid="text-entanglement">
+                  {Math.round(entanglementQuality * 100)}%
+                </span>
               </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
