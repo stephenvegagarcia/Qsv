@@ -53,9 +53,3 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_openai_ai_integrations:1.0.0"]
-
-[userenv]
-
-[userenv.shared]
-OLLAMA_URL = "https://ollama.com/api/web_search"
-OLLAMA_MODEL = "96919039472c459f87baa14ba4892190.cwmxBEQgixxJeGmu9ujpz119"
