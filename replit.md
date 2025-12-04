@@ -41,7 +41,7 @@ Preferred communication style: Simple, everyday language.
 - Custom hooks for audio processing (`use-audio-analyzer`)
 - Dynamic Three.js scene management with fog, lighting, and particle effects
 - Responsive sonar pulse visualization with simulated quantum processing
-- Voice assistant with speech recognition and text-to-speech (uses Ollama LLM for AI responses)
+- Voice assistant with speech recognition and text-to-speech (uses OpenAI for AI responses)
 
 ### Backend Architecture
 

@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { getSatelliteWeather } from "./satellite-weather";
 import { processQuantumStorm } from "./quantum-storm";
-import { askSonarAssistant, checkOllamaConnection } from "./ollama-service";
+import { askSonarAssistant, checkAIConnection } from "./ai-assistant";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -73,14 +73,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Check Ollama connection status
+  // Check AI connection status
   app.get("/api/assistant/status", async (req, res) => {
     try {
-      const connected = await checkOllamaConnection();
+      const connected = await checkAIConnection();
       res.json({ 
         connected,
-        ollamaUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
-        model: process.env.OLLAMA_MODEL || 'llama3.2'
+        provider: 'openai',
+        model: 'gpt-4o-mini'
       });
     } catch (error) {
       res.json({ connected: false });
