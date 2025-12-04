@@ -220,6 +220,12 @@ export function useVoiceAssistant(context: SonarContext) {
     };
 
     recognition.onerror = (event) => {
+      const benignErrors = ['aborted', 'no-speech'];
+      if (benignErrors.includes(event.error)) {
+        setState(prev => ({ ...prev, isListening: false }));
+        return;
+      }
+      
       console.error('Speech recognition error:', event.error);
       setState(prev => ({
         ...prev,
