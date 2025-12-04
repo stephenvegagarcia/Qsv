@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { getSatelliteWeather } from "./satellite-weather";
 import { processQuantumStorm } from "./quantum-storm";
+import { askSonarAssistant, checkOllamaConnection } from "./ollama-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -45,6 +46,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Quantum storm processing error:', error);
       res.status(500).json({ error: 'Quantum storm processing failed' });
+    }
+  });
+
+  // AI Assistant - ask questions about sonar detections
+  app.post("/api/assistant/ask", async (req, res) => {
+    try {
+      const { question, context } = req.body;
+      
+      if (!question || typeof question !== 'string') {
+        return res.status(400).json({ error: 'question is required' });
+      }
+      
+      const response = await askSonarAssistant(question, context || {
+        detections: [],
+        audioAnalysis: null,
+        weather: null,
+        detectionRange: 0,
+        quantumStatus: 'idle'
+      });
+      
+      res.json({ response });
+    } catch (error) {
+      console.error('AI assistant error:', error);
+      res.status(500).json({ error: 'AI assistant failed to respond' });
+    }
+  });
+
+  // Check Ollama connection status
+  app.get("/api/assistant/status", async (req, res) => {
+    try {
+      const connected = await checkOllamaConnection();
+      res.json({ 
+        connected,
+        ollamaUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
+        model: process.env.OLLAMA_MODEL || 'llama3.2'
+      });
+    } catch (error) {
+      res.json({ connected: false });
     }
   });
 

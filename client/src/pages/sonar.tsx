@@ -6,6 +6,7 @@ import { HUDOverlay } from '@/components/hud-overlay';
 import { ControlPanel } from '@/components/control-panel';
 import { DetectionPanel } from '@/components/detection-panel';
 import { InfoPanel } from '@/components/info-panel';
+import { VoiceAssistant } from '@/components/voice-assistant';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { Waves, HelpCircle } from 'lucide-react';
@@ -246,12 +247,21 @@ export default function SonarPage() {
         </div>
       )}
 
+      {/* Voice Assistant */}
+      <VoiceAssistant
+        detections={detections}
+        audioAnalysis={audioAnalysis}
+        weather={fusedWeather}
+        detectionRange={detectionRange}
+        quantumStatus={quantumStatus}
+      />
+
       {/* Help Button */}
       <Button
         size="icon"
         variant="ghost"
         onClick={() => setShowInfo(true)}
-        className="fixed bottom-8 right-8 backdrop-blur-sm bg-card/70 border border-card-border z-10"
+        className="fixed bottom-20 right-8 backdrop-blur-sm bg-card/70 border border-card-border z-10"
         data-testid="button-show-info"
       >
         <HelpCircle className="w-5 h-5" />
