@@ -12,6 +12,7 @@ interface UseWeatherFusionProps {
   acousticWeather?: WeatherCondition;
   frequencies?: number[];
   volume?: number;
+  onModeChange?: (mode: WeatherMode) => void;
 }
 
 interface LocationState {
@@ -25,13 +26,15 @@ export function useWeatherFusion({
   weatherMode, 
   acousticWeather, 
   frequencies = [], 
-  volume = 0 
+  volume = 0,
+  onModeChange
 }: UseWeatherFusionProps) {
   const [satelliteWeather, setSatelliteWeather] = useState<SatelliteWeather | null>(null);
   const [stormQuantum, setStormQuantum] = useState<StormQuantum | null>(null);
   const [fusedWeather, setFusedWeather] = useState<FusedWeather | null>(null);
   const [location, setLocation] = useState<LocationState>({ lat: 40.7128, lon: -74.006, available: false });
   const [isLoading, setIsLoading] = useState(false);
+  const [geolocationDenied, setGeolocationDenied] = useState(false);
   
   const lastFetchRef = useRef<number>(0);
   const FETCH_INTERVAL = 30000;
@@ -45,18 +48,30 @@ export function useWeatherFusion({
             lon: position.coords.longitude,
             available: true
           });
+          setGeolocationDenied(false);
         },
         (error) => {
           console.warn('Geolocation error:', error.message);
           setLocation(prev => ({ ...prev, error: error.message }));
+          setGeolocationDenied(true);
+          // Auto-fallback to acoustic mode when geolocation is denied
+          if (weatherMode !== 'acoustic' && onModeChange) {
+            console.warn('Switching to acoustic mode due to geolocation denial');
+            onModeChange('acoustic');
+          }
         },
         { enableHighAccuracy: false, timeout: 10000 }
       );
     }
-  }, []);
+  }, [weatherMode, onModeChange]);
 
   const fetchSatelliteWeather = useCallback(async () => {
+    // Only fetch if not in acoustic mode and location is available
     if (weatherMode === 'acoustic') return;
+    if (!location.available) {
+      // Don't fetch if location is not available; onModeChange will handle fallback
+      return;
+    }
     
     const now = Date.now();
     if (now - lastFetchRef.current < FETCH_INTERVAL) return;
@@ -76,7 +91,7 @@ export function useWeatherFusion({
     } finally {
       setIsLoading(false);
     }
-  }, [weatherMode, location.lat, location.lon]);
+  }, [weatherMode, location.lat, location.lon, location.available]);
 
   const processQuantumStorm = useCallback(async () => {
     if (weatherMode === 'acoustic' || frequencies.length === 0) return;
@@ -179,10 +194,11 @@ export function useWeatherFusion({
   }, [weatherMode, acousticWeather, satelliteWeather, stormQuantum]);
 
   useEffect(() => {
-    if (weatherMode !== 'acoustic') {
+    // Only fetch when mode requires satellite and location is resolved
+    if (weatherMode !== 'acoustic' && (location.available || location.error)) {
       fetchSatelliteWeather();
     }
-  }, [weatherMode, fetchSatelliteWeather]);
+  }, [weatherMode, location.available, location.error, fetchSatelliteWeather]);
 
   useEffect(() => {
     if (weatherMode !== 'acoustic' && satelliteWeather && frequencies.length > 0) {
@@ -205,6 +221,7 @@ export function useWeatherFusion({
     stormQuantum,
     location,
     isLoading,
+    geolocationDenied,
     refreshSatellite
   };
 }

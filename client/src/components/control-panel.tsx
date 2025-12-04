@@ -179,16 +179,17 @@ export function ControlPanel({ settings, onSettingsChange }: ControlPanelProps) 
                     Weather Data Source
                   </Label>
                   <Select 
-                    value={settings.weatherMode} 
+                    value={settings.weatherMode}
+                    defaultValue="acoustic"
                     onValueChange={(value) => onSettingsChange({ weatherMode: value as WeatherMode })}
                   >
-                    <SelectTrigger id="weather-mode" data-testid="select-weather-mode">
-                      <SelectValue />
+                    <SelectTrigger id="weather-mode" data-testid="select-trigger-weather-mode">
+                      <SelectValue placeholder="Select mode" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="acoustic">Acoustic Only</SelectItem>
-                      <SelectItem value="satellite">Satellite (NOAA)</SelectItem>
-                      <SelectItem value="fused">Fused (All Sources)</SelectItem>
+                      <SelectItem value="acoustic" data-testid="select-item-weather-acoustic">Acoustic Only</SelectItem>
+                      <SelectItem value="satellite" data-testid="select-item-weather-satellite">Satellite (NOAA)</SelectItem>
+                      <SelectItem value="fused" data-testid="select-item-weather-fused">Fused (All Sources)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

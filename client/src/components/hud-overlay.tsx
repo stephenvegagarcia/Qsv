@@ -66,7 +66,14 @@ export function HUDOverlay({
     fused: 'Fused'
   };
 
-  const displayWeather = fusedWeather?.condition || weather;
+  // Determine which weather to display based on mode
+  // In acoustic mode: always use acoustic weather
+  // In satellite/fused mode: use fused weather, show loading if not yet available
+  const isFetchingWeather = weatherMode !== 'acoustic' && !fusedWeather;
+  const displayWeather: WeatherCondition = 
+    weatherMode === 'acoustic' 
+      ? weather 
+      : (fusedWeather?.condition || 'unknown');
   const WeatherIcon = weatherIcons[displayWeather];
   const stormConfidence = fusedWeather?.stormQuantum?.stormConfidence;
 

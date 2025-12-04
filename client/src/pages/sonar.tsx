@@ -31,11 +31,17 @@ export default function SonarPage() {
   });
 
   // Weather fusion hook for combining acoustic, satellite, and quantum data
-  const { fusedWeather, stormQuantum } = useWeatherFusion({
+  // Includes auto-fallback to acoustic mode when geolocation is denied
+  const handleWeatherModeChange = useCallback((mode: 'acoustic' | 'satellite' | 'fused') => {
+    setSettings(prev => ({ ...prev, weatherMode: mode }));
+  }, []);
+
+  const { fusedWeather, geolocationDenied } = useWeatherFusion({
     weatherMode: settings.weatherMode,
     acousticWeather: audioAnalysis?.weather,
     frequencies: audioAnalysis?.frequencyData || [],
-    volume: audioAnalysis?.volume || 0
+    volume: audioAnalysis?.volume || 0,
+    onModeChange: handleWeatherModeChange
   });
 
   // Audio analysis loop

@@ -138,6 +138,40 @@ The application analyzes frequency patterns in real-time audio to detect environ
 - Purely client-side processing
 - Part of the AudioAnalysis data structure with WeatherCondition type
 
+### Multi-Source Weather Fusion System
+
+**Weather Modes:**
+The application supports three weather detection modes, selectable via the control panel:
+
+1. **Acoustic Mode**: Uses only microphone-based frequency analysis (default)
+2. **Satellite Mode**: Uses NOAA Weather.gov API data + quantum storm detection
+3. **Fused Mode**: Combines all sources with weighted voting algorithm
+
+**Satellite Weather Integration:**
+- Primary source: NOAA Weather.gov API (`api.weather.gov/points/{lat},{lon}`)
+- Provides: temperature, humidity, wind speed, storm probability
+- Requires geolocation (graceful fallback if denied)
+- Refreshes every 30 seconds
+
+**Quantum Storm Detection (Bell State):**
+Uses 2-qubit quantum entanglement for storm pattern detection:
+- Creates Bell state: |Φ⁺⟩ = 1/√2 (|00⟩ + |11⟩)
+- Measures concurrence and entanglement entropy
+- Storm confidence threshold: 0.7 (70%)
+- Displayed in HUD with progress bar
+
+**Fusion Algorithm:**
+Weighted voting when combining multiple sources:
+- Acoustic data: 30% weight
+- Satellite data: 50% weight
+- Quantum storm detection: 20% weight
+
+**Key Files:**
+- `client/src/hooks/use-weather-fusion.ts`: Weather fusion hook
+- `server/satellite-weather.ts`: NOAA API integration
+- `server/quantum-storm.ts`: Bell state quantum circuit
+- `shared/schema.ts`: WeatherMode, SatelliteWeather, StormQuantum, FusedWeather types
+
 ### Data Storage
 
 **Current Implementation:**
