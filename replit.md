@@ -33,6 +33,7 @@ Preferred communication style: Simple, everyday language.
 - `HUDOverlay`: Displays real-time metrics (audio level, pulse count, quantum status, detection range, acoustic weather conditions)
 - `ControlPanel`: Collapsible settings interface for FFT size, sensitivity, quantum modes, enhancement level, and noise reflection toggle
 - `DetectionPanel`: Shows detected environmental objects with direction and distance
+- `InfoPanel`: Tabbed help panel explaining FFT analysis, object detection, and weather detection systems (toggle with H key or help button)
 - `ThemeToggle`: Light/dark mode switcher
 
 **Key Features:**
