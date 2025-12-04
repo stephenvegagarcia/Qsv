@@ -5,9 +5,10 @@ import { SonarCanvas2D } from '@/components/sonar-canvas-2d';
 import { HUDOverlay } from '@/components/hud-overlay';
 import { ControlPanel } from '@/components/control-panel';
 import { DetectionPanel } from '@/components/detection-panel';
+import { InfoPanel } from '@/components/info-panel';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
-import { Waves } from 'lucide-react';
+import { Waves, HelpCircle } from 'lucide-react';
 import type { AudioAnalysis, Pulse, Detection, Settings } from '@shared/schema';
 
 export default function SonarPage() {
@@ -18,6 +19,7 @@ export default function SonarPage() {
   const [quantumStatus, setQuantumStatus] = useState<'idle' | 'ready' | 'processing'>('idle');
   const [detectionRange, setDetectionRange] = useState(0);
   const [showControls, setShowControls] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   
   const [settings, setSettings] = useState<Settings>({
     fftSize: '256',
@@ -130,11 +132,14 @@ export default function SonarPage() {
     }
   };
 
-  // Keyboard shortcut to toggle controls (C key)
+  // Keyboard shortcuts: C for controls, H for help/info
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.key === 'c' || e.key === 'C') {
         setShowControls(prev => !prev);
+      }
+      if (e.key === 'h' || e.key === 'H') {
+        setShowInfo(prev => !prev);
       }
     };
 
@@ -234,10 +239,26 @@ export default function SonarPage() {
           <div className="backdrop-blur-sm bg-card/70 border border-card-border rounded-md px-4 py-2">
             <p className="text-xs text-muted-foreground" data-testid="text-controls-hint">
               Press <kbd className="px-1.5 py-0.5 text-xs font-mono bg-muted rounded">C</kbd> for controls
+              {' • '}
+              <kbd className="px-1.5 py-0.5 text-xs font-mono bg-muted rounded">H</kbd> for help
             </p>
           </div>
         </div>
       )}
+
+      {/* Help Button */}
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={() => setShowInfo(true)}
+        className="fixed bottom-8 right-8 backdrop-blur-sm bg-card/70 border border-card-border z-10"
+        data-testid="button-show-info"
+      >
+        <HelpCircle className="w-5 h-5" />
+      </Button>
+
+      {/* Info Panel */}
+      {showInfo && <InfoPanel onClose={() => setShowInfo(false)} />}
     </div>
   );
 }
