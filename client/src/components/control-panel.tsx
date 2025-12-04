@@ -1,11 +1,11 @@
-import { Settings as SettingsIcon, ChevronDown, ChevronUp } from 'lucide-react';
+import { Settings as SettingsIcon, ChevronDown, ChevronUp, Satellite } from 'lucide-react';
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { Settings } from '@shared/schema';
+import type { Settings, WeatherMode } from '@shared/schema';
 
 interface ControlPanelProps {
   settings: Settings;
@@ -16,6 +16,7 @@ export function ControlPanel({ settings, onSettingsChange }: ControlPanelProps) 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     pulse: true,
     quantum: true,
+    weather: true,
     visual: true
   });
 
@@ -153,6 +154,56 @@ export function ControlPanel({ settings, onSettingsChange }: ControlPanelProps) 
                     disabled={settings.quantumMode === 'off'}
                   />
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* Weather Detection */}
+          <div className="border-b border-border pb-4">
+            <button
+              onClick={() => toggleSection('weather')}
+              data-testid="button-toggle-weather-settings"
+              className="flex items-center justify-between w-full text-sm font-medium mb-3 hover-elevate active-elevate-2 rounded-md p-2 -m-2"
+            >
+              <span className="flex items-center gap-2">
+                <Satellite className="w-4 h-4" />
+                Weather Detection
+              </span>
+              {expanded.weather ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+            
+            {expanded.weather && (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="weather-mode" className="text-xs text-muted-foreground mb-2 block">
+                    Weather Data Source
+                  </Label>
+                  <Select 
+                    value={settings.weatherMode} 
+                    onValueChange={(value) => onSettingsChange({ weatherMode: value as WeatherMode })}
+                  >
+                    <SelectTrigger id="weather-mode" data-testid="select-weather-mode">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="acoustic">Acoustic Only</SelectItem>
+                      <SelectItem value="satellite">Satellite (NOAA)</SelectItem>
+                      <SelectItem value="fused">Fused (All Sources)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="text-[10px] text-muted-foreground">
+                  {settings.weatherMode === 'acoustic' && 'Detects weather from audio frequency patterns'}
+                  {settings.weatherMode === 'satellite' && 'Uses NOAA satellite data + Bell state storm detection'}
+                  {settings.weatherMode === 'fused' && 'Combines acoustic, satellite, and quantum analysis'}
+                </div>
+
+                {settings.weatherMode !== 'acoustic' && (
+                  <div className="text-[10px] text-muted-foreground bg-accent/30 p-2 rounded-md">
+                    Storm detection uses quantum Bell state: 1/√2 (|00⟩ + |11⟩)
+                  </div>
+                )}
               </div>
             )}
           </div>

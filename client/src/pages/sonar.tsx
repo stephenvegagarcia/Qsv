@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAudioAnalyzer } from '@/hooks/use-audio-analyzer';
+import { useWeatherFusion } from '@/hooks/use-weather-fusion';
 import { SonarCanvas2D } from '@/components/sonar-canvas-2d';
 import { HUDOverlay } from '@/components/hud-overlay';
 import { ControlPanel } from '@/components/control-panel';
@@ -26,6 +27,15 @@ export default function SonarPage() {
     gridOpacity: 20,
     pulseColorIntensity: 80,
     noiseMode: false,
+    weatherMode: 'acoustic',
+  });
+
+  // Weather fusion hook for combining acoustic, satellite, and quantum data
+  const { fusedWeather, stormQuantum } = useWeatherFusion({
+    weatherMode: settings.weatherMode,
+    acousticWeather: audioAnalysis?.weather,
+    frequencies: audioAnalysis?.frequencyData || [],
+    volume: audioAnalysis?.volume || 0
   });
 
   // Audio analysis loop
@@ -185,6 +195,8 @@ export default function SonarPage() {
         quantumStatus={quantumStatus}
         detectionRange={detectionRange}
         weather={audioAnalysis?.weather}
+        fusedWeather={fusedWeather}
+        weatherMode={settings.weatherMode}
       />
 
       {/* Detection Panel - Conditionally shown */}
