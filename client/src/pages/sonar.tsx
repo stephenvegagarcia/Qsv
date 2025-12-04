@@ -39,7 +39,7 @@ export default function SonarPage() {
     setSettings(prev => ({ ...prev, weatherMode: mode }));
   }, []);
 
-  const { fusedWeather, geolocationDenied } = useWeatherFusion({
+  const { fusedWeather, geolocationDenied, location, stormQuantum } = useWeatherFusion({
     weatherMode: settings.weatherMode,
     acousticWeather: audioAnalysis?.weather,
     frequencies: audioAnalysis?.frequencyData || [],
@@ -254,6 +254,7 @@ export default function SonarPage() {
         weather={fusedWeather}
         detectionRange={detectionRange}
         quantumStatus={quantumStatus}
+        userLocation={location?.available ? { lat: location.lat, lon: location.lon } : null}
       />
 
       {/* Help Button */}

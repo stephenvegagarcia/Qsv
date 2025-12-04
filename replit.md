@@ -6,6 +6,13 @@ Quantum Audio Sonar is a specialized audio visualization application that maps e
 
 The system offers both a Python OpenCV version (recommended for desktop use) and a web-based version built with React, TypeScript, and Three.js. It combines real-time audio analysis, quantum computing algorithms, and advanced visualization to create an immersive environmental mapping experience.
 
+The voice AI assistant can answer questions about:
+- Nearby storm locations ("Where's the nearest storm?", "Point to the storm")
+- Storm directions ("Where is the storm coming from?")
+- Town/city weather ("Which town has storms nearby?")
+- Sonar detections ("What's the nearest detection?")
+- Weather conditions ("What's the weather like?")
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { getSatelliteWeather } from "./satellite-weather";
 import { processQuantumStorm } from "./quantum-storm";
 import { askSonarAssistant, checkAIConnection } from "./ai-assistant";
+import { getStormTracking } from "./storm-tracker";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -84,6 +85,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       res.json({ connected: false });
+    }
+  });
+
+  // Storm tracking - nearby cities with storm activity
+  app.get("/api/weather/storms", async (req, res) => {
+    try {
+      const lat = parseFloat(req.query.lat as string) || 40.7128;
+      const lon = parseFloat(req.query.lon as string) || -74.006;
+      
+      const tracking = await getStormTracking(lat, lon);
+      res.json(tracking);
+    } catch (error) {
+      console.error('Storm tracking error:', error);
+      res.status(500).json({ error: 'Failed to get storm tracking data' });
     }
   });
 

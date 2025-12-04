@@ -1,12 +1,14 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { Detection, AudioAnalysis, FusedWeather } from '@shared/schema';
+import type { Detection, AudioAnalysis, FusedWeather, StormTracking } from '@shared/schema';
 
 interface SonarContext {
   detections: Detection[];
   audioAnalysis: AudioAnalysis | null;
   weather: FusedWeather | null;
+  stormTracking?: StormTracking | null;
   detectionRange: number;
   quantumStatus: string;
+  userLocation?: { lat: number; lon: number } | null;
 }
 
 interface VoiceAssistantState {
@@ -134,16 +136,45 @@ export function useVoiceAssistant(context: SonarContext) {
     window.speechSynthesis.speak(utterance);
   }, []);
 
+  const fetchStormTracking = useCallback(async (): Promise<StormTracking | null> => {
+    const location = contextRef.current.userLocation;
+    if (!location) return null;
+    
+    try {
+      const res = await fetch(`/api/weather/storms?lat=${location.lat}&lon=${location.lon}`);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (error) {
+      console.warn('Failed to fetch storm tracking:', error);
+    }
+    return null;
+  }, []);
+
   const askQuestion = useCallback(async (question: string) => {
     setState(prev => ({ ...prev, isProcessing: true, error: null }));
 
     try {
+      const q = question.toLowerCase();
+      const needsStormData = q.includes('storm') || q.includes('thunder') || 
+                             q.includes('town') || q.includes('city') || 
+                             q.includes('nearby') || q.includes('point') ||
+                             q.includes('where') || q.includes('coming');
+      
+      let stormTracking = contextRef.current.stormTracking || null;
+      if (needsStormData && !stormTracking) {
+        stormTracking = await fetchStormTracking();
+      }
+
       const res = await fetch('/api/assistant/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question,
-          context: contextRef.current,
+          context: {
+            ...contextRef.current,
+            stormTracking,
+          },
         }),
       });
 
@@ -169,7 +200,7 @@ export function useVoiceAssistant(context: SonarContext) {
         error: errorMsg,
       }));
     }
-  }, [speak]);
+  }, [speak, fetchStormTracking]);
 
   const startListening = useCallback(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;

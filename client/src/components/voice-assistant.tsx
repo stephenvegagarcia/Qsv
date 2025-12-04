@@ -2,29 +2,35 @@ import { Mic, MicOff, Volume2, VolumeX, Loader2, WifiOff, MessageCircle } from '
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useVoiceAssistant } from '@/hooks/use-voice-assistant';
-import type { Detection, AudioAnalysis, FusedWeather } from '@shared/schema';
+import type { Detection, AudioAnalysis, FusedWeather, StormTracking } from '@shared/schema';
 
 interface VoiceAssistantProps {
   detections: Detection[];
   audioAnalysis: AudioAnalysis | null;
   weather: FusedWeather | null;
+  stormTracking?: StormTracking | null;
   detectionRange: number;
   quantumStatus: string;
+  userLocation?: { lat: number; lon: number } | null;
 }
 
 export function VoiceAssistant({
   detections,
   audioAnalysis,
   weather,
+  stormTracking,
   detectionRange,
   quantumStatus,
+  userLocation,
 }: VoiceAssistantProps) {
   const assistant = useVoiceAssistant({
     detections,
     audioAnalysis,
     weather,
+    stormTracking,
     detectionRange,
     quantumStatus,
+    userLocation,
   });
 
   const {
@@ -124,10 +130,10 @@ export function VoiceAssistant({
 
       {!isActive && !response && !error && (
         <p 
-          className="text-xs text-muted-foreground text-right max-w-[150px]"
+          className="text-xs text-muted-foreground text-right max-w-[180px]"
           data-testid="text-voice-hint"
         >
-          Ask about detections
+          Ask about storms or detections
         </p>
       )}
     </div>

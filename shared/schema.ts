@@ -38,6 +38,34 @@ export const stormQuantumSchema = z.object({
 
 export type StormQuantum = z.infer<typeof stormQuantumSchema>;
 
+// Storm Location with Direction
+export const stormLocationSchema = z.object({
+  name: z.string(), // Town/city name
+  distance: z.number(), // Distance in km
+  direction: z.number(), // Bearing in degrees (0-360)
+  cardinalDirection: z.string(), // N, NE, E, SE, S, SW, W, NW
+  severity: z.enum(["low", "moderate", "high", "severe"]),
+  condition: weatherConditionSchema,
+  stormProbability: z.number().min(0).max(1),
+});
+
+export type StormLocation = z.infer<typeof stormLocationSchema>;
+
+// Storm Tracking Data
+export const stormTrackingSchema = z.object({
+  userLocation: z.object({
+    lat: z.number(),
+    lon: z.number(),
+  }),
+  nearbyStorms: z.array(stormLocationSchema),
+  stormApproaching: z.boolean(),
+  approachingFrom: z.string().optional(), // Cardinal direction
+  estimatedArrival: z.string().optional(), // "30 minutes", "2 hours", etc.
+  timestamp: z.number(),
+});
+
+export type StormTracking = z.infer<typeof stormTrackingSchema>;
+
 // Fused Weather Result (combining all sources)
 export const fusedWeatherSchema = z.object({
   condition: weatherConditionSchema,
@@ -45,6 +73,7 @@ export const fusedWeatherSchema = z.object({
   acousticCondition: weatherConditionSchema.optional(),
   satelliteCondition: weatherConditionSchema.optional(),
   stormQuantum: stormQuantumSchema.optional(),
+  stormTracking: stormTrackingSchema.optional(),
   source: weatherModeSchema,
 });
 
